@@ -109,6 +109,9 @@ SavedResults/
 # Project-specific: Database
 history.db
 
+# Project-specific: Python runtime
+python311/
+
 # OS generated files
 .DS_Store
 .DS_Store?

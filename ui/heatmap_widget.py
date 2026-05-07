@@ -11,9 +11,9 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt6.QtCore import Qt, QSize, QPoint, QRect
 from PyQt6.QtGui import QPixmap, QFont, QCursor
 
-# 导入处理逻辑
+# 确保项目根目录在 sys.path 中
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'logic'))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from logic.heatmap_thread import HeatmapThread
 # 导入现代风格样式
 from ui.modern_style import MODERN_STYLE
@@ -46,7 +46,7 @@ class HeatmapWidget(QWidget):
         
         file_layout.addWidget(QLabel("CSV文件:"))
         self.file_path_edit = QLabel("未选择文件")
-        self.file_path_edit.setStyleSheet("QLabel { background-color: #f8f9fa; border: 2px solid #e0e0e0; padding: 8px 12px; border-radius: 6px; }")
+        self.file_path_edit.setStyleSheet("QLabel { background-color: rgba(255,255,255,0.7); border: 1px solid rgba(0,0,0,0.08); padding: 8px 12px; border-radius: 10px; color: #111827; font-weight: 600; }")
         file_layout.addWidget(self.file_path_edit, 1)
         
         browse_btn = QPushButton("浏览...")
@@ -91,7 +91,7 @@ class HeatmapWidget(QWidget):
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_label.setText("请选择CSV文件并生成热力图")
-        self.image_label.setStyleSheet("QLabel { background-color: white; border: 2px solid #e0e0e0; border-radius: 6px; }")
+        self.image_label.setStyleSheet("QLabel { background-color: rgba(255,255,255,0.5); border: 1px solid rgba(0,0,0,0.06); border-radius: 12px; }")
         self.image_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.image_label.setMinimumSize(1, 1)  # 确保标签可以调整大小
         # 启用鼠标跟踪以支持双击事件
@@ -223,7 +223,7 @@ class HeatmapWidget(QWidget):
         if self._zoom_mode:
             self.zoom_mode_btn.setText("✕ 退出放大")
             self.zoom_mode_btn.setStyleSheet(
-                "QPushButton { background: #f43f5e; color: white; font-weight: bold; }")
+                "QPushButton { background: #f43f5e; color: white; font-weight: 700; }")
             self.image_label.setCursor(QCursor(Qt.CursorShape.CrossCursor))
             self.image_label.installEventFilter(self)
             self.status_text.append("放大模式已开启：在图片上拖拽鼠标选择区域进行局部放大")

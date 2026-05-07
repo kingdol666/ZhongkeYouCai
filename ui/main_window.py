@@ -14,8 +14,8 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
 from PyQt6.QtCore import Qt, QTimer, QDate, QPoint, QRect, QSize
 from PyQt6.QtGui import QFont, QPixmap, QCursor
 
-# 导入处理逻辑
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'logic'))
+# 确保项目根目录在 sys.path 中
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from logic.data_processor import DataProcessorThread, SingleFolderProcessorThread
 from logic.folder_monitor import MonitorCore
 from logic.database import init_db, insert_record, query_records, update_record, delete_record
@@ -446,7 +446,7 @@ class MainWindow(QMainWindow):
         self.sf_image_label.setText("请选择文件夹并开始分析")
         self.sf_image_label.setStyleSheet(
             "QLabel { background-color: rgba(255,255,255,0.5);"
-            " border: 1px solid rgba(226,232,240,0.8); border-radius: 12px; }")
+            " border: 1px solid rgba(0,0,0,0.06); border-radius: 12px; }")
         self.sf_image_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.sf_image_label.setMinimumSize(1, 1)
         self.sf_original_pixmap = None
@@ -610,7 +610,7 @@ class MainWindow(QMainWindow):
         if self._sf_zoom_mode:
             self.sf_zoom_mode_btn.setText("✕ 退出放大")
             self.sf_zoom_mode_btn.setStyleSheet(
-                "QPushButton { background: #f43f5e; color: white; font-weight: bold; }")
+                "QPushButton { background: #f43f5e; color: white; font-weight: 700; }")
             self.sf_image_label.setCursor(QCursor(Qt.CursorShape.CrossCursor))
             self.sf_image_label.installEventFilter(self)
             self.sf_status.append("放大模式已开启：在图片上拖拽鼠标选择区域进行局部放大")
@@ -767,14 +767,22 @@ class MainWindow(QMainWindow):
         self._btn_cp_browse = btn_cp
         param_layout.addWidget(btn_cp, 6, 3)
 
+        # 自动跟随最新文件夹（独立于零点切换）
+        self.mf_auto_follow_cb = QCheckBox("自动跟随最新文件夹")
+        self.mf_auto_follow_cb.setToolTip(
+            "启用后，定时扫描磁盘上的最新日期文件夹并自动切换监控目标；\n"
+            "关闭则始终监控下方设置的固定文件夹，不会自动跳转")
+        self.mf_auto_follow_cb.stateChanged.connect(self._on_auto_switch_toggled)
+        param_layout.addWidget(self.mf_auto_follow_cb, 7, 0, 1, 4)
+
         # 异常标记 & 备注
-        param_layout.addWidget(QLabel("是否异常:"), 7, 0)
+        param_layout.addWidget(QLabel("是否异常:"), 8, 0)
         self.mf_abnormal_cb = QCheckBox("标记为异常")
-        param_layout.addWidget(self.mf_abnormal_cb, 7, 1)
-        param_layout.addWidget(QLabel("备注:"), 7, 2)
+        param_layout.addWidget(self.mf_abnormal_cb, 8, 1)
+        param_layout.addWidget(QLabel("备注:"), 8, 2)
         self.mf_remarks_edit = QLineEdit()
         self.mf_remarks_edit.setPlaceholderText("可选备注信息...")
-        param_layout.addWidget(self.mf_remarks_edit, 7, 3)
+        param_layout.addWidget(self.mf_remarks_edit, 8, 3)
 
         param_group.setLayout(param_layout)
         main_layout.addWidget(param_group)
@@ -827,7 +835,7 @@ class MainWindow(QMainWindow):
         self.mf_image_label.setText("等待监控启动...")
         self.mf_image_label.setStyleSheet(
             "QLabel { background-color: rgba(255,255,255,0.5);"
-            " border: 1px solid rgba(226,232,240,0.8); border-radius: 12px; }")
+            " border: 1px solid rgba(0,0,0,0.06); border-radius: 12px; }")
         self.mf_image_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.mf_image_label.setMinimumSize(1, 1)
         self._mf_original_pixmap = None
@@ -904,8 +912,8 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "参数错误", "起始模头位置必须小于终止模头位置")
                 return None
             if not os.path.isdir(self.mf_folder_edit.text()):
-                if self.mf_auto_switch_cb.isChecked():
-                    # 自动切换模式下，日期文件夹可能尚未创建，尝试创建
+                if self.mf_auto_switch_cb.isChecked() or self.mf_auto_follow_cb.isChecked():
+                    # 自动模式下，日期文件夹可能尚未创建，尝试自动创建
                     try:
                         os.makedirs(self.mf_folder_edit.text(), exist_ok=True)
                     except OSError:
@@ -923,14 +931,16 @@ class MainWindow(QMainWindow):
 
     # --- 启动 / 停止监控 ---
     def start_monitoring(self):
-        # 如果启用自动切换，先将监控文件夹设为当天日期路径
-        if self.mf_auto_switch_cb.isChecked():
+        # 如果启用了自动切换或自动跟随，将监控文件夹设为当天日期路径
+        if self.mf_auto_switch_cb.isChecked() or self.mf_auto_follow_cb.isChecked():
             base = self.mf_customprofile_edit.text().strip()
+            if not base:
+                QMessageBox.warning(self, "路径错误", "请先设置CustomProfile路径")
+                return
             today_path = self._build_date_folder()
             if not today_path:
                 QMessageBox.warning(self, "路径错误", "无法构建日期路径，请检查CustomProfile路径设置")
                 return
-            # 如果当天路径不存在，尝试使用磁盘上最新日期文件夹
             if not os.path.isdir(today_path):
                 latest = self._find_latest_date_folder(base)
                 if latest:
@@ -956,7 +966,8 @@ class MainWindow(QMainWindow):
         self.mf_start_btn.setEnabled(False)
         self.mf_stop_btn.setEnabled(True)
         self.mf_save_btn.setEnabled(False)
-        self.mf_test_midnight_btn.setEnabled(self.mf_auto_switch_cb.isChecked())
+        self.mf_test_midnight_btn.setEnabled(
+            self.mf_auto_switch_cb.isChecked() or self.mf_auto_follow_cb.isChecked())
         self.mf_progress.setValue(0)
         self.mf_status.clear()
 
@@ -1007,14 +1018,32 @@ class MainWindow(QMainWindow):
             self.mf_customprofile_edit.setText(folder)
 
     def _on_auto_switch_toggled(self, checked):
-        self.mf_customprofile_edit.setEnabled(checked)
-        self._btn_cp_browse.setEnabled(checked)
-        if checked and not self.mf_customprofile_edit.text():
-            # 自动填入默认值
+        self._sync_customprofile_state()
+        # 如果监控已在运行，同步定时器状态
+        self._sync_midnight_timer()
+
+    def _sync_customprofile_state(self):
+        """当任一自动功能启用时，需要CustomProfile路径"""
+        need_cp = self.mf_auto_switch_cb.isChecked() or self.mf_auto_follow_cb.isChecked()
+        self.mf_customprofile_edit.setEnabled(need_cp)
+        self._btn_cp_browse.setEnabled(need_cp)
+        if need_cp and not self.mf_customprofile_edit.text():
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             default_cp = os.path.join(project_root, "Data", "CustomProfile")
             if os.path.isdir(default_cp):
                 self.mf_customprofile_edit.setText(default_cp)
+
+    def _sync_midnight_timer(self):
+        """根据复选框状态决定是否启停午夜定时器"""
+        need_timer = self.mf_auto_switch_cb.isChecked() or self.mf_auto_follow_cb.isChecked()
+        if self._monitor_core and self._monitor_core.is_monitoring():
+            if need_timer:
+                if not self._midnight_timer or not self._midnight_timer.isActive():
+                    self._start_midnight_timer()
+                self.mf_test_midnight_btn.setEnabled(True)
+            else:
+                self._stop_midnight_timer()
+                self.mf_test_midnight_btn.setEnabled(False)
 
     def _build_date_folder(self) -> str | None:
         """根据当前日期构建文件夹路径：{CustomProfile}/{year}_{month}/{day}"""
@@ -1072,19 +1101,22 @@ class MainWindow(QMainWindow):
         self._last_midnight_date = None
 
     def _check_midnight(self):
-        """检查是否已跨天，如果是则切换监控文件夹。
-        同时扫描磁盘上是否有新日期文件夹（仿真模式下自动跟随）。"""
+        """检查是否已跨天（零点自动切换），以及磁盘扫描（自动跟随最新文件夹）。"""
         from datetime import datetime
         today = datetime.now().strftime("%Y%m%d")
         switched = False
-        if self._last_midnight_date and today != self._last_midnight_date:
+
+        # 零点切换：由"每日零点自动切换"控制
+        if self._last_midnight_date and today != self._last_midnight_date \
+                and self.mf_auto_switch_cb.isChecked():
             self._mf_append_log(f"========== 零点触发 ==========")
             self._mf_append_log(f"日期变更: {self._last_midnight_date} -> {today}")
             self._switch_to_today_folder()
             switched = True
         self._last_midnight_date = today
 
-        if not switched:
+        # 磁盘扫描：由"自动跟随最新文件夹"控制
+        if not switched and self.mf_auto_follow_cb.isChecked():
             base = self.mf_customprofile_edit.text().strip()
             if base and os.path.isdir(base):
                 latest = self._find_latest_date_folder(base)
@@ -1095,10 +1127,7 @@ class MainWindow(QMainWindow):
                     self._switch_to_today_folder(target_path=latest)
 
     def _switch_to_today_folder(self, target_path: str | None = None):
-        """切换到目标日期文件夹并重启监控。
-        Args:
-            target_path: 目标文件夹路径，为 None 时使用当天日期构建。
-        """
+        """切换到目标日期文件夹并重启监控。"""
         if target_path is None:
             target_path = self._build_date_folder()
         if not target_path:
@@ -1116,6 +1145,14 @@ class MainWindow(QMainWindow):
                 self._mf_append_log(f"[零点切换失败] 无法创建目标文件夹: {e}")
                 return
 
+        # 先存档当前批次，防止数据丢失
+        self._auto_save_previous()
+
+        # 等待正在处理的线程完成
+        if self._monitor_thread and self._monitor_thread.isRunning():
+            self._mf_append_log("等待当前处理完成...")
+            self._monitor_thread.wait(10000)  # 最多等10秒
+
         # 停止当前监控
         old_monitor = self._monitor_core
         if old_monitor:
@@ -1123,9 +1160,6 @@ class MainWindow(QMainWindow):
             old_monitor.different_parent_detected.disconnect()
             old_monitor.status_changed.disconnect()
             old_monitor.stop_monitoring()
-
-        if self._monitor_thread and self._monitor_thread.isRunning():
-            self._monitor_thread.stop()
 
         self._monitor_queue.clear()
         self._monitor_busy = False
@@ -1151,12 +1185,13 @@ class MainWindow(QMainWindow):
 
     def _test_midnight_switch(self):
         """手动触发零点切换（测试用）。
-        优先扫描磁盘上最新日期文件夹（跟随仿真），否则使用当天日期。"""
+        优先扫描磁盘上最新日期文件夹，否则使用当天日期。"""
         if not self._monitor_core:
             QMessageBox.warning(self, "未监控", "请先启动监控")
             return
-        if not self.mf_auto_switch_cb.isChecked():
-            QMessageBox.warning(self, "未启用", '请先勾选"每日零点自动切换"')
+        if not self.mf_auto_switch_cb.isChecked() and not self.mf_auto_follow_cb.isChecked():
+            QMessageBox.warning(self, "未启用",
+                               '请先勾选"每日零点自动切换"或"自动跟随最新文件夹"')
             return
 
         base = self.mf_customprofile_edit.text().strip()
@@ -1349,7 +1384,7 @@ class MainWindow(QMainWindow):
         if self._mf_zoom_mode:
             self.mf_zoom_mode_btn.setText("✕ 退出放大")
             self.mf_zoom_mode_btn.setStyleSheet(
-                "QPushButton { background: #f43f5e; color: white; font-weight: bold; }")
+                "QPushButton { background: #f43f5e; color: white; font-weight: 700; }")
             self.mf_image_label.setCursor(QCursor(Qt.CursorShape.CrossCursor))
             self.mf_image_label.installEventFilter(self)
             self._mf_append_log("放大模式已开启：在图片上拖拽鼠标选择区域进行局部放大")
@@ -1553,7 +1588,7 @@ class MainWindow(QMainWindow):
         self.hist_preview_label.setMinimumSize(1, 1)
         self.hist_preview_label.setStyleSheet(
             "QLabel { background-color: rgba(255,255,255,0.5);"
-            " border: 1px solid rgba(226,232,240,0.8); border-radius: 12px; }")
+            " border: 1px solid rgba(0,0,0,0.06); border-radius: 12px; }")
         self.hist_preview_label.mouseDoubleClickEvent = self._hist_image_dbl_click
         self._hist_orig_pixmap = None
         self._hist_zoomed = False
@@ -1741,7 +1776,7 @@ class MainWindow(QMainWindow):
         if self._hist_zoom_mode:
             self.hist_zoom_mode_btn.setText("✕ 退出放大")
             self.hist_zoom_mode_btn.setStyleSheet(
-                "QPushButton { background: #f43f5e; color: white; font-weight: bold; }")
+                "QPushButton { background: #f43f5e; color: white; font-weight: 700; }")
             self.hist_preview_label.setCursor(QCursor(Qt.CursorShape.CrossCursor))
             self.hist_preview_label.installEventFilter(self)
         else:
