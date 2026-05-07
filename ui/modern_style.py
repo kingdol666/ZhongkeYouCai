@@ -526,6 +526,46 @@ QToolTip {
 }
 
 /* ============================================================
+   DIALOG & MESSAGE BOX — Light Theme
+   ============================================================ */
+QDialog {
+    background-color: #ffffff;
+    color: #111827;
+}
+
+QMessageBox {
+    background-color: #ffffff;
+    color: #111827;
+}
+
+QMessageBox QLabel {
+    color: #111827;
+    background: transparent;
+}
+
+QMessageBox QPushButton {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #f59e0b, stop:1 #d97706);
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 28px;
+    font-weight: 700;
+    font-size: 12px;
+    min-width: 80px;
+}
+
+QMessageBox QPushButton:hover {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #d97706, stop:1 #b45309);
+}
+
+QMessageBox QPushButton:pressed {
+    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+        stop:0 #b45309, stop:1 #92400e);
+}
+
+/* ============================================================
    TEXT BROWSER (Usage Tab)
    ============================================================ */
 QTextBrowser {
