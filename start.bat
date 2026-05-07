@@ -1,9 +1,9 @@
 @echo off
 setlocal
-title CSV Data Processor - Launcher
+title Film Thickness Heatmap Analysis - Launcher
 
 echo ============================================
-echo   CSV Data Processor - Auto Setup ^& Launch
+echo   膜厚云图分析系统 - Auto Setup ^& Launch
 echo ============================================
 echo.
 

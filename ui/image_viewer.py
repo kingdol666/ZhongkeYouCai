@@ -9,7 +9,6 @@ from PyQt6.QtWidgets import (QMainWindow, QGraphicsView, QGraphicsScene,
                               QGraphicsPixmapItem, QToolBar, QStatusBar)
 from PyQt6.QtCore import Qt, QRectF
 from PyQt6.QtGui import QPixmap, QPainter, QAction, QKeySequence, QShortcut
-from ui.modern_style import MODERN_STYLE
 
 
 class ImageViewerWindow(QMainWindow):
@@ -23,7 +22,6 @@ class ImageViewerWindow(QMainWindow):
         fname = os.path.basename(image_path)
         self.setWindowTitle(f"图片查看器 - {fname}")
         self.resize(1100, 780)
-        self.setStyleSheet(MODERN_STYLE)
 
         # ---- 场景 & 视图 ----
         self._scene = QGraphicsScene(self)

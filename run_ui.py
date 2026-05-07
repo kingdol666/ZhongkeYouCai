@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-CSV数据批处理工具启动脚本
+中科优材 · 膜厚云图分析系统 — 启动脚本
 """
 
 import sys

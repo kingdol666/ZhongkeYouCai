@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-CSV数据批处理工具 - 主窗口界面
+中科优材 · 膜厚云图分析系统 — 主窗口界面
 """
 
 import sys
@@ -23,7 +23,6 @@ from logic.database import init_db, insert_record, query_records, update_record,
 # 导入热力云图组件
 from ui.heatmap_widget import HeatmapWidget
 # 导入现代风格样式
-from ui.modern_style import MODERN_STYLE
 from ui.image_viewer import ImageViewerWindow
 # 导入Markdown支持
 import markdown
@@ -59,9 +58,14 @@ class MainWindow(QMainWindow):
         
     def init_ui(self):
         """初始化UI — 左侧可折叠导航 + 右侧内容区"""
-        self.setWindowTitle("CSV数据批处理工具")
+        self.setWindowTitle("中科优材 · 膜厚云图分析系统")
         self.setGeometry(100, 100, 1280, 800)
-        self.setStyleSheet(MODERN_STYLE)
+
+        # 设置应用图标
+        icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "icon.png")
+        if os.path.exists(icon_path):
+            from PyQt6.QtGui import QIcon
+            self.setWindowIcon(QIcon(icon_path))
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -102,9 +106,9 @@ class MainWindow(QMainWindow):
         logo_frame.setObjectName("logoFrame")
         logo_layout = QVBoxLayout(logo_frame)
         logo_layout.setContentsMargins(20, 24, 20, 18)
-        self._logo_title = QLabel("📊  CSV批处理工具")
+        self._logo_title = QLabel("🔆  膜厚云图分析")
         self._logo_title.setObjectName("logoTitle")
-        self._logo_subtitle = QLabel("ZhongkeYouCai")
+        self._logo_subtitle = QLabel("ZHONGKE YOUCAI")
         self._logo_subtitle.setObjectName("logoSubtitle")
         logo_layout.addWidget(self._logo_title)
         logo_layout.addWidget(self._logo_subtitle)
@@ -1506,7 +1510,7 @@ class MainWindow(QMainWindow):
         collapsed = self.sidebar.width() > 60
         if collapsed:
             self.sidebar.setFixedWidth(60)
-            self._logo_title.setText("📊")
+            self._logo_title.setText("🔆")
             self._logo_subtitle.hide()
             self.collapse_btn.setText(" ▶")
             for btn, (icon, label, _) in zip(self.nav_buttons, self._nav_data):
@@ -1515,7 +1519,7 @@ class MainWindow(QMainWindow):
             self.collapse_btn.setToolTip("展开导航")
         else:
             self.sidebar.setFixedWidth(220)
-            self._logo_title.setText("📊  CSV批处理工具")
+            self._logo_title.setText("🔆  膜厚云图分析")
             self._logo_subtitle.show()
             self.collapse_btn.setText("◀  折叠导航")
             for btn, (icon, label, _) in zip(self.nav_buttons, self._nav_data):
@@ -1961,7 +1965,9 @@ class MainWindow(QMainWindow):
 
 
 if __name__ == "__main__":
+    from ui.modern_style import MODERN_STYLE
     app = QApplication(sys.argv)
+    app.setStyleSheet(MODERN_STYLE)
     window = MainWindow()
     window.show()
     sys.exit(app.exec())

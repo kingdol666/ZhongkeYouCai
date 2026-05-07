@@ -406,7 +406,6 @@ QComboBox::drop-down {
     width: 30px;
     subcontrol-origin: padding;
     subcontrol-position: top right;
-    image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M3 5l3 3 3-3' fill='none' stroke='%23374151' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>");
 }
 
 QComboBox QAbstractItemView {
@@ -495,7 +494,6 @@ QDateEdit::drop-down, QDateTimeEdit::drop-down {
     width: 30px;
     subcontrol-origin: padding;
     subcontrol-position: top right;
-    image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M3 5l3 3 3-3' fill='none' stroke='%23374151' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>");
 }
 
 QCalendarWidget {
@@ -528,7 +526,6 @@ QCalendarWidget QToolButton::menu-indicator {
     subcontrol-origin: padding;
     subcontrol-position: right center;
     left: 2px;
-    image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M3 5l3 3 3-3' fill='none' stroke='%23374151' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>");
     width: 14px;
     height: 14px;
 }
@@ -580,9 +577,8 @@ QCalendarWidget QSpinBox::up-button {
     subcontrol-origin: border;
     subcontrol-position: top right;
     border: none;
-    border-left: 1px solid rgba(0,0,0,0.08);
-    border-bottom: 1px solid rgba(0,0,0,0.05);
-    image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 7l3-3 3 3' fill='none' stroke='%23374151' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    border-left: 1px solid rgba(0,0,0,0.1);
+    border-bottom: 1px solid rgba(0,0,0,0.06);
     width: 22px;
     border-top-right-radius: 7px;
 }
@@ -595,8 +591,7 @@ QCalendarWidget QSpinBox::down-button {
     subcontrol-origin: border;
     subcontrol-position: bottom right;
     border: none;
-    border-left: 1px solid rgba(0,0,0,0.08);
-    image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path d='M2 4l3 3 3-3' fill='none' stroke='%23374151' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    border-left: 1px solid rgba(0,0,0,0.1);
     width: 22px;
     border-bottom-right-radius: 7px;
 }

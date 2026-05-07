@@ -15,8 +15,6 @@ from PyQt6.QtGui import QPixmap, QFont, QCursor
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from logic.heatmap_thread import HeatmapThread
-# 导入现代风格样式
-from ui.modern_style import MODERN_STYLE
 from ui.image_viewer import ImageViewerWindow
 
 
@@ -30,9 +28,6 @@ class HeatmapWidget(QWidget):
         
     def init_ui(self):
         """初始化UI"""
-        # 应用现代风格样式
-        self.setStyleSheet(MODERN_STYLE)
-        
         # 创建主布局
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(15, 15, 15, 15)
