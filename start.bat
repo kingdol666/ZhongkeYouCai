@@ -122,7 +122,7 @@ echo ============================================
 echo.
 
 cd /d "%~dp0"
-"%PYTHON_EXE%" "ui\main_window.py"
+"%PYTHON_EXE%" "run_ui.py"
 
 if errorlevel 1 (
     echo.

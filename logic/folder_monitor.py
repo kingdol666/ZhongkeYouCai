@@ -6,10 +6,21 @@
 """
 
 import os
+import re
 import shutil
 from datetime import datetime
 
 from PyQt6.QtCore import QObject, QFileSystemWatcher, QTimer, pyqtSignal
+
+
+def extract_roll_number(parent_dir: str) -> str | None:
+    """从父目录路径中提取卷号。
+
+    例: /path/Test_Tes20260423150029OverLmt_143_0/定量 → '143'
+    """
+    test_dir = os.path.basename(os.path.dirname(parent_dir))
+    match = re.search(r'OverLmt_(\d+)_\d+$', test_dir)
+    return match.group(1) if match else None
 
 
 class MonitorCore(QObject):
@@ -164,10 +175,25 @@ class MonitorCore(QObject):
 
     # ---------- 保存操作 ----------
     @staticmethod
-    def save_results(csv_path: str, image_path: str, save_dir: str):
-        """将处理结果（CSV + 热力图PNG）保存到指定目录（带时间戳子文件夹）"""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        target_dir = os.path.join(save_dir, f"result_{timestamp}")
+    def save_results(csv_path: str, image_path: str, save_dir: str,
+                     roll_number: str | None = None):
+        """将处理结果保存到指定目录。
+
+        若提供卷号则按卷号命名:  SavedResults/result_20260507_143_0
+        否则使用时间戳命名:        SavedResults/result_20260507_193511
+        """
+        if roll_number:
+            date_str = datetime.now().strftime("%Y%m%d")
+            base = f"result_{date_str}_{roll_number}"
+            target_dir = os.path.join(save_dir, base)
+            seq = 0
+            while os.path.exists(target_dir):
+                seq += 1
+                target_dir = os.path.join(save_dir, f"{base}_{seq}")
+        else:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            target_dir = os.path.join(save_dir, f"result_{timestamp}")
+
         os.makedirs(target_dir, exist_ok=True)
 
         dst_csv = os.path.join(target_dir, os.path.basename(csv_path))

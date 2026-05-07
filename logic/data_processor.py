@@ -126,18 +126,21 @@ class DataProcessorThread(QThread):
                     time_str = parse_time_from_filename(csv_file)
                     
                     # 读取CSV文件，跳过前start_row-1行，只读取num_data_points行数据
-                    # 尝试使用UTF-8编码读取，如果失败则尝试GBK编码
                     try:
                         df = pd.read_csv(csv_path, skiprows=self.start_row-1, header=None, names=['pos', 'bw'], nrows=num_data_points, encoding='utf-8')
                     except UnicodeDecodeError:
                         try:
                             df = pd.read_csv(csv_path, skiprows=self.start_row-1, header=None, names=['pos', 'bw'], nrows=num_data_points, encoding='gbk')
                         except UnicodeDecodeError:
-                            # 如果都失败，尝试自动检测编码
                             import chardet
                             with open(csv_path, 'rb') as f:
-                                result = chardet.detect(f.read())
-                            df = pd.read_csv(csv_path, skiprows=self.start_row-1, header=None, names=['pos', 'bw'], nrows=num_data_points, encoding=result['encoding'])
+                                raw = f.read()
+                            detected = chardet.detect(raw)
+                            enc = detected.get('encoding', 'utf-8') or 'utf-8'
+                            try:
+                                df = pd.read_csv(csv_path, skiprows=self.start_row-1, header=None, names=['pos', 'bw'], nrows=num_data_points, encoding=enc)
+                            except Exception:
+                                df = pd.read_csv(csv_path, skiprows=self.start_row-1, header=None, names=['pos', 'bw'], nrows=num_data_points, encoding='latin-1')
                     
                     # 确保数据点数量匹配
                     if len(df) != num_data_points:
@@ -206,10 +209,17 @@ class SingleFolderProcessorThread(QThread):
                 continue
         import chardet
         with open(csv_path, 'rb') as f:
-            result = chardet.detect(f.read())
-        return pd.read_csv(csv_path, skiprows=self.start_row - 1,
-                           header=None, names=['pos', 'bw'],
-                           nrows=num_data_points, encoding=result['encoding'])
+            raw = f.read()
+        detected = chardet.detect(raw)
+        enc = detected.get('encoding', 'utf-8') or 'utf-8'
+        try:
+            return pd.read_csv(csv_path, skiprows=self.start_row - 1,
+                               header=None, names=['pos', 'bw'],
+                               nrows=num_data_points, encoding=enc)
+        except (UnicodeDecodeError, Exception):
+            return pd.read_csv(csv_path, skiprows=self.start_row - 1,
+                               header=None, names=['pos', 'bw'],
+                               nrows=num_data_points, encoding='latin-1')
 
     def _merge_csv_files(self):
         """合并文件夹下所有CSV，返回 (merged_csv_path, valid_files_count)"""
@@ -324,11 +334,20 @@ class SingleFolderProcessorThread(QThread):
             ax.set_xticks(x_ticks)
             ax.set_xticklabels([f'{t:.1f}' for t in x_ticks], rotation=45, ha='right')
 
-        # 左轴：真实时间
+        # 左轴：真实时间（HH:MM:SS）
         n_rows = len(df)
-        if n_rows > 10:
-            step = max(1, n_rows // 10)
+        if n_rows > 1:
+            # 智能选择刻度数量：最多显示约10个时间标签
+            if n_rows <= 10:
+                step = 1
+            elif n_rows <= 30:
+                step = max(1, n_rows // 6)
+            else:
+                step = max(1, n_rows // 10)
             y_ticks = list(range(0, n_rows, step))
+            # 确保最后一个时间点也被标记
+            if y_ticks[-1] != n_rows - 1 and n_rows - 1 - y_ticks[-1] >= step // 2:
+                y_ticks.append(n_rows - 1)
             time_labels = []
             for i in y_ticks:
                 try:

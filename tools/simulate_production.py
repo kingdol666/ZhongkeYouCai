@@ -36,7 +36,7 @@ from PyQt6.QtGui import QFont, QPixmap
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, PROJECT_ROOT)
 
-from logic.folder_monitor import MonitorCore
+from logic.folder_monitor import MonitorCore, extract_roll_number
 from logic.data_processor import SingleFolderProcessorThread
 
 
@@ -183,6 +183,7 @@ class SimulationWindow(QWidget):
         self._monitor_busy = False
         self._monitor_current_csv: str | None = None
         self._monitor_current_image: str | None = None
+        self._monitor_current_parent: str | None = None
         self._monitor_queue: list[tuple[str, bool]] = []
         self._params: dict = {}
         self._csv_produced = 0
@@ -553,6 +554,7 @@ class SimulationWindow(QWidget):
 
     def _run_processor(self, parent_dir, is_same_parent):
         self._monitor_busy = True
+        self._monitor_current_parent = parent_dir
         if not is_same_parent:
             self._auto_save()
 
@@ -578,7 +580,10 @@ class SimulationWindow(QWidget):
             return
         save_dir = self.save_edit.text()
         try:
-            target, _, _ = MonitorCore.save_results(csv_path, img_path, save_dir)
+            roll_number = extract_roll_number(self._monitor_current_parent) \
+                if self._monitor_current_parent else None
+            target, _, _ = MonitorCore.save_results(
+                csv_path, img_path, save_dir, roll_number=roll_number)
             self._log(f"    [自动存档] {target}")
         except Exception as e:
             self._log(f"    [自动存档失败] {e}")

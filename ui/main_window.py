@@ -17,7 +17,7 @@ from PyQt6.QtGui import QFont, QPixmap, QCursor
 # 确保项目根目录在 sys.path 中
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from logic.data_processor import DataProcessorThread, SingleFolderProcessorThread
-from logic.folder_monitor import MonitorCore
+from logic.folder_monitor import MonitorCore, extract_roll_number
 from logic.database import init_db, insert_record, query_records, update_record, delete_record
 
 # 导入热力云图组件
@@ -45,6 +45,7 @@ class MainWindow(QMainWindow):
         self._monitor_busy = False
         self._midnight_timer: QTimer | None = None
         self._last_midnight_date: str | None = None  # 记录上次触发的日期，避免重复
+        self._pending_switch_target: str | None = None  # 异步零点切换目标路径
 
         # 放大模式状态（单文件夹、监控、历史 三个预览共用此模式）
         for prefix in ('_sf', '_mf', '_hist'):
@@ -995,6 +996,8 @@ class MainWindow(QMainWindow):
         self._mf_append_log(f"开始监控: {self.mf_folder_edit.text()}")
 
     def stop_monitoring(self):
+        # 先存档当前批次，防止数据丢失
+        self._auto_save_previous()
         if self._monitor_core:
             self._monitor_core.stop_monitoring()
             self._monitor_core = None
@@ -1003,6 +1006,7 @@ class MainWindow(QMainWindow):
             self._monitor_thread = None
         self._monitor_queue.clear()
         self._monitor_busy = False
+        self._pending_switch_target = None
         self._stop_midnight_timer()
 
         self.mf_start_btn.setEnabled(True)
@@ -1127,7 +1131,7 @@ class MainWindow(QMainWindow):
                     self._switch_to_today_folder(target_path=latest)
 
     def _switch_to_today_folder(self, target_path: str | None = None):
-        """切换到目标日期文件夹并重启监控。"""
+        """切换到目标日期文件夹并重启监控（异步非阻塞）。"""
         if target_path is None:
             target_path = self._build_date_folder()
         if not target_path:
@@ -1148,24 +1152,32 @@ class MainWindow(QMainWindow):
         # 先存档当前批次，防止数据丢失
         self._auto_save_previous()
 
-        # 等待正在处理的线程完成
-        if self._monitor_thread and self._monitor_thread.isRunning():
-            self._mf_append_log("等待当前处理完成...")
-            self._monitor_thread.wait(10000)  # 最多等10秒
-
-        # 停止当前监控
+        # 停止当前监控（不再接收新事件）
         old_monitor = self._monitor_core
         if old_monitor:
             old_monitor.same_parent_detected.disconnect()
             old_monitor.different_parent_detected.disconnect()
             old_monitor.status_changed.disconnect()
             old_monitor.stop_monitoring()
+            self._monitor_core = None
 
         self._monitor_queue.clear()
-        self._monitor_busy = False
         self._monitor_current_csv = None
         self._monitor_current_image = None
         self._monitor_current_parent = None
+
+        # 如果处理线程仍在运行，异步等待其完成后再切换
+        if self._monitor_thread and self._monitor_thread.isRunning():
+            self._mf_append_log("等待当前处理完成后切换...")
+            self._pending_switch_target = target_path
+            self._monitor_thread.stop()  # 设置停止标志（线程会在下次循环检查时退出）
+        else:
+            self._do_switch(target_path)
+
+    def _do_switch(self, target_path: str):
+        """执行监控切换：在新目标路径上启动监控。"""
+        self._monitor_busy = False
+        self._pending_switch_target = None
 
         # 更新路径
         self.mf_folder_edit.setText(target_path)
@@ -1271,7 +1283,10 @@ class MainWindow(QMainWindow):
         if not save_dir:
             return
         try:
-            target, dst_csv, dst_img = MonitorCore.save_results(csv_path, img_path, save_dir)
+            roll_number = extract_roll_number(self._monitor_current_parent) \
+                if self._monitor_current_parent else None
+            target, dst_csv, dst_img = MonitorCore.save_results(
+                csv_path, img_path, save_dir, roll_number=roll_number)
             is_abnormal = 1 if self.mf_abnormal_cb.isChecked() else 0
             remarks = self.mf_remarks_edit.text().strip()
             insert_record(dst_csv, dst_img, target, is_abnormal=is_abnormal, remarks=remarks)
@@ -1291,6 +1306,12 @@ class MainWindow(QMainWindow):
             self.mf_save_btn.setEnabled(True)
 
         self._mf_append_log(message)
+
+        # 如果有待处理的零点切换，先完成切换
+        if self._pending_switch_target:
+            target = self._pending_switch_target
+            self._do_switch(target)
+            return
 
         # 处理队列中的下一个
         if self._monitor_queue:
@@ -1364,7 +1385,10 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            target, dst_csv, dst_img = MonitorCore.save_results(csv_path, img_path, save_dir)
+            roll_number = extract_roll_number(self._monitor_current_parent) \
+                if self._monitor_current_parent else None
+            target, dst_csv, dst_img = MonitorCore.save_results(
+                csv_path, img_path, save_dir, roll_number=roll_number)
             is_abnormal = 1 if self.mf_abnormal_cb.isChecked() else 0
             remarks = self.mf_remarks_edit.text().strip()
             insert_record(dst_csv, dst_img, target, is_abnormal=is_abnormal, remarks=remarks)

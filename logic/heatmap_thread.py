@@ -52,11 +52,15 @@ class HeatmapThread(QThread):
                     try:
                         df = pd.read_csv(self.csv_file_path, index_col=0, encoding='gbk')
                     except UnicodeDecodeError:
-                        # 如果都失败，尝试自动检测编码
                         import chardet
                         with open(self.csv_file_path, 'rb') as f:
-                            result = chardet.detect(f.read())
-                        df = pd.read_csv(self.csv_file_path, index_col=0, encoding=result['encoding'])
+                            raw = f.read()
+                        detected = chardet.detect(raw)
+                        enc = detected.get('encoding', 'utf-8') or 'utf-8'
+                        try:
+                            df = pd.read_csv(self.csv_file_path, index_col=0, encoding=enc)
+                        except Exception:
+                            df = pd.read_csv(self.csv_file_path, index_col=0, encoding='latin-1')
                 
                 self.status_updated.emit(f"成功读取CSV文件，数据形状: {df.shape}")
             except Exception as e:
@@ -73,23 +77,25 @@ class HeatmapThread(QThread):
             
             # 解析时间索引
             try:
-                # 尝试解析时间索引
+                # 尝试解析时间索引（支持 HH:MM:SS 和 HH_MM_SS 两种格式）
                 time_index = []
                 for time_str in df.index:
-                    # 假设时间格式为 HH_MM_SS 或类似格式
-                    if '_' in time_str:
-                        parts = time_str.split('_')
-                        if len(parts) >= 3:
-                            hour, minute, second = int(parts[0]), int(parts[1]), int(parts[2])
-                            time_index.append(datetime(2023, 1, 1, hour, minute, second))
-                        else:
-                            # 如果格式不符合预期，使用序号
+                    if ':' in str(time_str):
+                        try:
+                            parts = str(time_str).split(':')
+                            time_index.append(datetime(2023, 1, 1, int(parts[0]), int(parts[1]), int(parts[2])))
+                        except (ValueError, IndexError):
+                            time_index.append(datetime(2023, 1, 1) + timedelta(minutes=len(time_index)))
+                    elif '_' in str(time_str):
+                        parts = str(time_str).split('_')
+                        try:
+                            time_index.append(datetime(2023, 1, 1, int(parts[0]), int(parts[1]), int(parts[2])))
+                        except (ValueError, IndexError):
                             time_index.append(datetime(2023, 1, 1) + timedelta(minutes=len(time_index)))
                     else:
-                        # 如果没有下划线，尝试直接解析
                         try:
                             time_index.append(pd.to_datetime(time_str))
-                        except:
+                        except Exception:
                             time_index.append(datetime(2023, 1, 1) + timedelta(minutes=len(time_index)))
                             
                 # 使用解析后的时间索引
@@ -169,11 +175,18 @@ class HeatmapThread(QThread):
                     ax.set_xticks(x_ticks)
                     ax.set_xticklabels([f'{tick:.1f}' for tick in x_ticks], rotation=45, ha='right')
 
-                # 左轴：真实时间
+                # 左轴：真实时间（HH:MM:SS）
                 n_rows = len(df)
-                if n_rows > 10:
-                    step = max(1, n_rows // 10)
+                if n_rows > 1:
+                    if n_rows <= 10:
+                        step = 1
+                    elif n_rows <= 30:
+                        step = max(1, n_rows // 6)
+                    else:
+                        step = max(1, n_rows // 10)
                     y_ticks = list(range(0, n_rows, step))
+                    if y_ticks[-1] != n_rows - 1 and n_rows - 1 - y_ticks[-1] >= step // 2:
+                        y_ticks.append(n_rows - 1)
                     time_labels = []
                     for i in y_ticks:
                         try:
