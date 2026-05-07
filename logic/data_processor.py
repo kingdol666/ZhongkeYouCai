@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.ticker import AutoMinorLocator
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from datetime import datetime, timedelta
 from PyQt6.QtCore import QThread, pyqtSignal
 
@@ -304,7 +305,7 @@ class SingleFolderProcessorThread(QThread):
                        extent=[min(positions), max(positions), 0, max(1, len(df) - 1)])
 
         ax.set_xlabel('模头位置 (mm)', fontsize=12, fontweight='bold')
-        ax.set_ylabel('时间点', fontsize=12, fontweight='bold')
+        ax.set_ylabel('时间', fontsize=12, fontweight='bold')
         for spine in ax.spines.values():
             spine.set_linewidth(1.5)
             spine.set_color('black')
@@ -323,13 +324,23 @@ class SingleFolderProcessorThread(QThread):
             ax.set_xticks(x_ticks)
             ax.set_xticklabels([f'{t:.1f}' for t in x_ticks], rotation=45, ha='right')
 
-        if len(df.index) > 10:
-            step = len(df.index) // 10
-            y_ticks = list(range(0, len(df.index), step))
+        # 左轴：真实时间
+        n_rows = len(df)
+        if n_rows > 10:
+            step = max(1, n_rows // 10)
+            y_ticks = list(range(0, n_rows, step))
+            time_labels = []
+            for i in y_ticks:
+                try:
+                    time_labels.append(df.index[i].strftime('%H:%M:%S'))
+                except Exception:
+                    time_labels.append(str(df.index[i]))
             ax.set_yticks(y_ticks)
-            ax.set_yticklabels([df.index[i].strftime('%H:%M:%S') for i in y_ticks])
+            ax.set_yticklabels(time_labels)
 
-        cbar = plt.colorbar(im, ax=ax, shrink=0.85, aspect=20)
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="3%", pad=0.8)
+        cbar = plt.colorbar(im, cax=cax)
         cbar.set_label('厚度值', fontsize=11, fontweight='bold')
         cbar.ax.tick_params(labelsize=10, width=1, length=5, direction='in')
 

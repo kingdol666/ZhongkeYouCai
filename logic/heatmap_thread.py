@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.ticker import AutoMinorLocator
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from datetime import datetime, timedelta
 from PyQt6.QtCore import QThread, pyqtSignal
 
@@ -135,8 +136,8 @@ class HeatmapThread(QThread):
                 
                 # 设置Origin风格的坐标轴样式
                 ax.set_xlabel('模头位置 (mm)', fontsize=12, fontweight='bold')
-                ax.set_ylabel('时间点', fontsize=12, fontweight='bold')
-                
+                ax.set_ylabel('时间', fontsize=12, fontweight='bold')
+
                 # 设置坐标轴线条样式
                 ax.spines['top'].set_linewidth(1.5)
                 ax.spines['bottom'].set_linewidth(1.5)
@@ -146,51 +147,46 @@ class HeatmapThread(QThread):
                 ax.spines['bottom'].set_color('black')
                 ax.spines['left'].set_color('black')
                 ax.spines['right'].set_color('black')
-                
+
                 # 添加次要刻度（Origin风格的重要特征）
                 ax.xaxis.set_minor_locator(AutoMinorLocator())
                 ax.yaxis.set_minor_locator(AutoMinorLocator())
-                
+
                 # 设置刻度样式
-                ax.tick_params(axis='both', which='major', labelsize=10, width=1.2, length=6, 
+                ax.tick_params(axis='both', which='major', labelsize=10, width=1.2, length=6,
                               direction='inout', color='black')
-                ax.tick_params(axis='both', which='minor', width=1, length=3, 
+                ax.tick_params(axis='both', which='minor', width=1, length=3,
                               direction='in', color='black')
-                
+
                 # 添加网格线（Origin风格通常有清晰的网格）
                 ax.grid(True, linestyle='--', alpha=0.7, color='gray', linewidth=0.5)
                 ax.grid(which='minor', linestyle=':', alpha=0.5, color='gray', linewidth=0.3)
-                
+
                 # 设置x轴刻度
                 if len(x_data) > 10:
                     step = len(x_data) // 10
                     x_ticks = [x_data[i] for i in range(0, len(x_data), step)]
                     ax.set_xticks(x_ticks)
-                    # 优化x轴标签显示
                     ax.set_xticklabels([f'{tick:.1f}' for tick in x_ticks], rotation=45, ha='right')
-                
-                # 设置y轴为时间格式
-                if all(isinstance(t, datetime) for t in df.index):
-                    # 格式化时间显示
-                    time_fmt = mdates.DateFormatter('%H:%M:%S')
-                    ax.yaxis.set_major_formatter(time_fmt)
-                    
-                    # 设置y轴刻度
-                    if len(df.index) > 10:
-                        step = len(df.index) // 10
-                        y_ticks = list(range(0, len(df.index), step))
-                        ax.set_yticks(y_ticks)
-                        ax.set_yticklabels([df.index[i].strftime('%H:%M:%S') for i in y_ticks])
-                else:
-                    # 如果不是datetime对象，使用原始索引
-                    if len(df.index) > 10:
-                        step = len(df.index) // 10
-                        y_ticks = list(range(0, len(df.index), step))
-                        ax.set_yticks(y_ticks)
-                        ax.set_yticklabels([str(df.index[i]) for i in y_ticks])
-                
-                # 添加颜色条，优化样式
-                cbar = plt.colorbar(im, ax=ax, shrink=0.85, aspect=20)
+
+                # 左轴：真实时间
+                n_rows = len(df)
+                if n_rows > 10:
+                    step = max(1, n_rows // 10)
+                    y_ticks = list(range(0, n_rows, step))
+                    time_labels = []
+                    for i in y_ticks:
+                        try:
+                            time_labels.append(df.index[i].strftime('%H:%M:%S'))
+                        except Exception:
+                            time_labels.append(str(df.index[i]))
+                    ax.set_yticks(y_ticks)
+                    ax.set_yticklabels(time_labels)
+
+                # 添加颜色条，放在图外部右侧
+                divider = make_axes_locatable(ax)
+                cax = divider.append_axes("right", size="3%", pad=0.8)
+                cbar = plt.colorbar(im, cax=cax)
                 cbar.set_label('厚度值', fontsize=11, fontweight='bold')
                 cbar.ax.tick_params(labelsize=10, width=1, length=5, direction='in')
                 
