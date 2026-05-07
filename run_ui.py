@@ -30,7 +30,6 @@ from ui.modern_style import MODERN_STYLE
 
 if __name__ == "__main__":
     QCoreApplication.setApplicationName("厚度分析")
-    QCoreApplication.setApplicationDisplayName("厚度分析")
     QCoreApplication.setOrganizationName("ZhongkeYouCai")
     QCoreApplication.setOrganizationDomain("zhongkeyoucai.com")
 
