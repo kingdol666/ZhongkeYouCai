@@ -10,9 +10,9 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                             QLabel, QLineEdit, QPushButton, QFileDialog, QProgressBar,
                             QTextEdit, QGroupBox, QGridLayout, QMessageBox,
                             QTextBrowser, QScrollArea, QSizePolicy, QCheckBox,
-                            QStackedWidget, QFrame)
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QFont, QPixmap
+                            QStackedWidget, QFrame, QDateEdit, QRubberBand)
+from PyQt6.QtCore import Qt, QTimer, QDate, QPoint, QRect, QSize
+from PyQt6.QtGui import QFont, QPixmap, QCursor
 
 # 导入处理逻辑
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'logic'))
@@ -24,6 +24,7 @@ from logic.database import init_db, insert_record, query_records, update_record,
 from ui.heatmap_widget import HeatmapWidget
 # 导入现代风格样式
 from ui.modern_style import MODERN_STYLE
+from ui.image_viewer import ImageViewerWindow
 # 导入Markdown支持
 import markdown
 
@@ -44,6 +45,15 @@ class MainWindow(QMainWindow):
         self._monitor_busy = False
         self._midnight_timer: QTimer | None = None
         self._last_midnight_date: str | None = None  # 记录上次触发的日期，避免重复
+
+        # 放大模式状态（单文件夹、监控、历史 三个预览共用此模式）
+        for prefix in ('_sf', '_mf', '_hist'):
+            setattr(self, f'{prefix}_zoom_mode', False)
+            setattr(self, f'{prefix}_rubber_band', None)
+            setattr(self, f'{prefix}_rubber_origin', None)
+            setattr(self, f'{prefix}_zoom_history', [])
+            setattr(self, f'{prefix}_current_image_path', '')
+
         self.init_ui()
         
     def init_ui(self):
@@ -449,6 +459,21 @@ class MainWindow(QMainWindow):
         image_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         main_layout.addWidget(image_group, 1)
 
+        # 放大模式控制按钮
+        sf_zoom_ctrl = QHBoxLayout()
+        sf_zoom_ctrl.setSpacing(8)
+        self.sf_zoom_mode_btn = QPushButton("🔍 放大模式")
+        self.sf_zoom_mode_btn.setToolTip("进入放大模式后，在图片上拖拽选中区域即可局部放大")
+        self.sf_zoom_mode_btn.clicked.connect(self._sf_toggle_zoom_mode)
+        sf_zoom_ctrl.addWidget(self.sf_zoom_mode_btn)
+        self.sf_restore_btn = QPushButton("↩ 还原")
+        self.sf_restore_btn.setToolTip("还原到原始视图")
+        self.sf_restore_btn.clicked.connect(self._sf_restore_zoom)
+        self.sf_restore_btn.hide()
+        sf_zoom_ctrl.addWidget(self.sf_restore_btn)
+        sf_zoom_ctrl.addStretch()
+        main_layout.addLayout(sf_zoom_ctrl)
+
         # --- 状态显示 ---
         status_group = QGroupBox("处理状态")
         status_layout = QVBoxLayout()
@@ -530,15 +555,20 @@ class MainWindow(QMainWindow):
         sb.setValue(sb.maximum())
 
     def _sf_display_image(self, image_path, title):
+        self._sf_current_image_path = image_path
+        self._sf_current_title = title
         pixmap = QPixmap(image_path)
         if pixmap.isNull():
             self.sf_status.append("无法加载图像")
             return
         self.sf_original_pixmap = pixmap
         self.sf_is_zoomed = False
+        self._sf_zoom_history.clear()
+        self.sf_restore_btn.hide()
         self._sf_scale_image(pixmap)
         self.sf_image_label.setText("")
-        self.sf_status.append("提示: 双击图片切换原始大小/适应窗口")
+        self.sf_status.append("提示: 双击图片可在全功能查看器中打开")
+        self.sf_status.append("提示: 点击「🔍 放大模式」可在图上框选区域局部放大")
 
     def _sf_scale_image(self, pixmap):
         w = self.sf_scroll.width() - 10
@@ -552,15 +582,18 @@ class MainWindow(QMainWindow):
         self.sf_image_label.setPixmap(scaled)
 
     def _sf_image_double_click(self, event):
+        """双击 — 在全功能查看器中打开；放大模式中则还原"""
         if not self.sf_original_pixmap:
             return
-        self.sf_is_zoomed = not self.sf_is_zoomed
-        if self.sf_is_zoomed:
-            self.sf_image_label.setPixmap(self.sf_original_pixmap)
-            self.sf_image_label.setMinimumSize(self.sf_original_pixmap.size())
-        else:
-            self.sf_image_label.setMinimumSize(1, 1)
-            self._sf_scale_image(self.sf_original_pixmap)
+        if self._sf_zoom_mode:
+            self._sf_restore_zoom()
+            return
+        try:
+            self._sf_viewer = ImageViewerWindow(
+                self._sf_current_image_path, getattr(self, '_sf_current_title', ''), self)
+            self._sf_viewer.show()
+        except Exception as e:
+            self.sf_status.append(f"打开图片查看器失败: {e}")
 
     def _sf_finished(self, success, message):
         self.sf_start_btn.setEnabled(True)
@@ -569,6 +602,88 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "分析完成", message)
         else:
             QMessageBox.warning(self, "分析失败", message)
+
+    # ========== 单文件夹放大模式 ==========
+
+    def _sf_toggle_zoom_mode(self):
+        self._sf_zoom_mode = not self._sf_zoom_mode
+        if self._sf_zoom_mode:
+            self.sf_zoom_mode_btn.setText("✕ 退出放大")
+            self.sf_zoom_mode_btn.setStyleSheet(
+                "QPushButton { background: #f43f5e; color: white; font-weight: bold; }")
+            self.sf_image_label.setCursor(QCursor(Qt.CursorShape.CrossCursor))
+            self.sf_image_label.installEventFilter(self)
+            self.sf_status.append("放大模式已开启：在图片上拖拽鼠标选择区域进行局部放大")
+        else:
+            self._sf_exit_zoom_mode()
+
+    def _sf_exit_zoom_mode(self):
+        self._sf_zoom_mode = False
+        self.sf_zoom_mode_btn.setText("🔍 放大模式")
+        self.sf_zoom_mode_btn.setStyleSheet("")
+        self.sf_image_label.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
+        self.sf_image_label.removeEventFilter(self)
+        self._sf_clear_rubber_band()
+        self.sf_restore_btn.hide()
+        if self.sf_original_pixmap:
+            self._sf_zoom_history.clear()
+            self.sf_is_zoomed = False
+            self.sf_image_label.setMinimumSize(1, 1)
+            self._sf_scale_image(self.sf_original_pixmap)
+
+    def _sf_restore_zoom(self):
+        if self._sf_zoom_history:
+            self._sf_zoom_history.pop()
+        if self._sf_zoom_history:
+            prev = self._sf_zoom_history[-1]
+            scaled = prev.scaled(self.sf_image_label.size(),
+                                 Qt.AspectRatioMode.KeepAspectRatio,
+                                 Qt.TransformationMode.SmoothTransformation)
+            self.sf_image_label.setPixmap(scaled)
+        else:
+            self.sf_restore_btn.hide()
+            if self.sf_original_pixmap:
+                self.sf_image_label.setMinimumSize(1, 1)
+                self._sf_scale_image(self.sf_original_pixmap)
+        if not self._sf_zoom_history:
+            self.sf_restore_btn.hide()
+
+    def _sf_clear_rubber_band(self):
+        if self._sf_rubber_band:
+            self._sf_rubber_band.hide()
+            self._sf_rubber_band = None
+        self._sf_rubber_origin = None
+
+    def _sf_zoom_to_region(self, label_rect: QRect):
+        if not self.sf_original_pixmap:
+            return
+        current_pixmap = self.sf_image_label.pixmap()
+        if not current_pixmap:
+            return
+        label_size = self.sf_image_label.size()
+        pixmap_rect = current_pixmap.rect()
+        offset_x = (label_size.width() - pixmap_rect.width()) // 2
+        offset_y = (label_size.height() - pixmap_rect.height()) // 2
+        px = max(0, label_rect.x() - offset_x)
+        py = max(0, label_rect.y() - offset_y)
+        pw = min(label_rect.width(), pixmap_rect.width() - px)
+        ph = min(label_rect.height(), pixmap_rect.height() - py)
+        if pw <= 0 or ph <= 0:
+            return
+        scale_x = self.sf_original_pixmap.width() / pixmap_rect.width()
+        scale_y = self.sf_original_pixmap.height() / pixmap_rect.height()
+        orig_x = int(px * scale_x)
+        orig_y = int(py * scale_y)
+        orig_w = max(1, min(int(pw * scale_x), self.sf_original_pixmap.width() - orig_x))
+        orig_h = max(1, min(int(ph * scale_y), self.sf_original_pixmap.height() - orig_y))
+        cropped = self.sf_original_pixmap.copy(orig_x, orig_y, orig_w, orig_h)
+        zoomed = cropped.scaled(label_size,
+                                Qt.AspectRatioMode.KeepAspectRatio,
+                                Qt.TransformationMode.SmoothTransformation)
+        self._sf_zoom_history.append(current_pixmap)
+        self.sf_image_label.setPixmap(zoomed)
+        self.sf_restore_btn.show()
+        self.sf_status.append(f"已放大区域: ({orig_x},{orig_y}) {orig_w}×{orig_h}")
 
     # ==================== 文件夹监控标签页 ====================
     def init_monitor_tab(self):
@@ -724,6 +839,21 @@ class MainWindow(QMainWindow):
         img_group.setLayout(img_layout)
         img_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         main_layout.addWidget(img_group, 1)
+
+        # 放大模式控制按钮
+        mf_zoom_ctrl = QHBoxLayout()
+        mf_zoom_ctrl.setSpacing(8)
+        self.mf_zoom_mode_btn = QPushButton("🔍 放大模式")
+        self.mf_zoom_mode_btn.setToolTip("进入放大模式后，在图片上拖拽选中区域即可局部放大")
+        self.mf_zoom_mode_btn.clicked.connect(self._mf_toggle_zoom_mode)
+        mf_zoom_ctrl.addWidget(self.mf_zoom_mode_btn)
+        self.mf_restore_btn = QPushButton("↩ 还原")
+        self.mf_restore_btn.setToolTip("还原到原始视图")
+        self.mf_restore_btn.clicked.connect(self._mf_restore_zoom)
+        self.mf_restore_btn.hide()
+        mf_zoom_ctrl.addWidget(self.mf_restore_btn)
+        mf_zoom_ctrl.addStretch()
+        main_layout.addLayout(mf_zoom_ctrl)
 
         # --- 状态显示 ---
         status_group = QGroupBox("监控日志")
@@ -1137,8 +1267,8 @@ class MainWindow(QMainWindow):
     def _mf_display_image(self, image_path: str, title: str):
         """在监控标签页显示热力云图"""
         self._monitor_current_image = image_path
+        self._mf_current_image_path = image_path
 
-        # 根据处理线程的输出路径推导 CSV 路径
         if self._monitor_thread:
             folder_name = os.path.basename(self._monitor_current_parent or "")
             csv_path = os.path.join(self.mf_output_edit.text(), f"merged_{folder_name}.csv")
@@ -1151,6 +1281,8 @@ class MainWindow(QMainWindow):
             return
         self._mf_original_pixmap = pixmap
         self._mf_is_zoomed = False
+        self._mf_zoom_history.clear()
+        self.mf_restore_btn.hide()
         self._mf_scale_image(pixmap)
         self.mf_image_label.setText("")
 
@@ -1166,15 +1298,18 @@ class MainWindow(QMainWindow):
         self.mf_image_label.setPixmap(scaled)
 
     def _mf_image_double_click(self, event):
+        """双击 — 在全功能查看器中打开；放大模式中则还原"""
         if not self._mf_original_pixmap:
             return
-        self._mf_is_zoomed = not self._mf_is_zoomed
-        if self._mf_is_zoomed:
-            self.mf_image_label.setPixmap(self._mf_original_pixmap)
-            self.mf_image_label.setMinimumSize(self._mf_original_pixmap.size())
-        else:
-            self.mf_image_label.setMinimumSize(1, 1)
-            self._mf_scale_image(self._mf_original_pixmap)
+        if self._mf_zoom_mode:
+            self._mf_restore_zoom()
+            return
+        try:
+            self._mf_viewer = ImageViewerWindow(
+                self._mf_current_image_path, '', self)
+            self._mf_viewer.show()
+        except Exception as e:
+            self._mf_append_log(f"打开图片查看器失败: {e}")
 
     # --- 手动存档 ---
     def _monitor_manual_save(self):
@@ -1206,6 +1341,88 @@ class MainWindow(QMainWindow):
                                     f"已保存到:\n{target}\n\nCSV: {os.path.basename(dst_csv)}\n云图: {os.path.basename(dst_img)}")
         except Exception as e:
             QMessageBox.warning(self, "存档失败", str(e))
+
+    # ========== 监控放大模式 ==========
+
+    def _mf_toggle_zoom_mode(self):
+        self._mf_zoom_mode = not self._mf_zoom_mode
+        if self._mf_zoom_mode:
+            self.mf_zoom_mode_btn.setText("✕ 退出放大")
+            self.mf_zoom_mode_btn.setStyleSheet(
+                "QPushButton { background: #f43f5e; color: white; font-weight: bold; }")
+            self.mf_image_label.setCursor(QCursor(Qt.CursorShape.CrossCursor))
+            self.mf_image_label.installEventFilter(self)
+            self._mf_append_log("放大模式已开启：在图片上拖拽鼠标选择区域进行局部放大")
+        else:
+            self._mf_exit_zoom_mode()
+
+    def _mf_exit_zoom_mode(self):
+        self._mf_zoom_mode = False
+        self.mf_zoom_mode_btn.setText("🔍 放大模式")
+        self.mf_zoom_mode_btn.setStyleSheet("")
+        self.mf_image_label.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
+        self.mf_image_label.removeEventFilter(self)
+        self._mf_clear_rubber_band()
+        self.mf_restore_btn.hide()
+        if self._mf_original_pixmap:
+            self._mf_zoom_history.clear()
+            self._mf_is_zoomed = False
+            self.mf_image_label.setMinimumSize(1, 1)
+            self._mf_scale_image(self._mf_original_pixmap)
+
+    def _mf_restore_zoom(self):
+        if self._mf_zoom_history:
+            self._mf_zoom_history.pop()
+        if self._mf_zoom_history:
+            prev = self._mf_zoom_history[-1]
+            scaled = prev.scaled(self.mf_image_label.size(),
+                                 Qt.AspectRatioMode.KeepAspectRatio,
+                                 Qt.TransformationMode.SmoothTransformation)
+            self.mf_image_label.setPixmap(scaled)
+        else:
+            self.mf_restore_btn.hide()
+            if self._mf_original_pixmap:
+                self.mf_image_label.setMinimumSize(1, 1)
+                self._mf_scale_image(self._mf_original_pixmap)
+        if not self._mf_zoom_history:
+            self.mf_restore_btn.hide()
+
+    def _mf_clear_rubber_band(self):
+        if self._mf_rubber_band:
+            self._mf_rubber_band.hide()
+            self._mf_rubber_band = None
+        self._mf_rubber_origin = None
+
+    def _mf_zoom_to_region(self, label_rect: QRect):
+        if not self._mf_original_pixmap:
+            return
+        current_pixmap = self.mf_image_label.pixmap()
+        if not current_pixmap:
+            return
+        label_size = self.mf_image_label.size()
+        pixmap_rect = current_pixmap.rect()
+        offset_x = (label_size.width() - pixmap_rect.width()) // 2
+        offset_y = (label_size.height() - pixmap_rect.height()) // 2
+        px = max(0, label_rect.x() - offset_x)
+        py = max(0, label_rect.y() - offset_y)
+        pw = min(label_rect.width(), pixmap_rect.width() - px)
+        ph = min(label_rect.height(), pixmap_rect.height() - py)
+        if pw <= 0 or ph <= 0:
+            return
+        scale_x = self._mf_original_pixmap.width() / pixmap_rect.width()
+        scale_y = self._mf_original_pixmap.height() / pixmap_rect.height()
+        orig_x = int(px * scale_x)
+        orig_y = int(py * scale_y)
+        orig_w = max(1, min(int(pw * scale_x), self._mf_original_pixmap.width() - orig_x))
+        orig_h = max(1, min(int(ph * scale_y), self._mf_original_pixmap.height() - orig_y))
+        cropped = self._mf_original_pixmap.copy(orig_x, orig_y, orig_w, orig_h)
+        zoomed = cropped.scaled(label_size,
+                                Qt.AspectRatioMode.KeepAspectRatio,
+                                Qt.TransformationMode.SmoothTransformation)
+        self._mf_zoom_history.append(current_pixmap)
+        self.mf_image_label.setPixmap(zoomed)
+        self.mf_restore_btn.show()
+        self._mf_append_log(f"已放大区域: ({orig_x},{orig_y}) {orig_w}×{orig_h}")
 
     # --- 日志 ---
     def _mf_append_log(self, message: str):
@@ -1273,17 +1490,21 @@ class MainWindow(QMainWindow):
         filter_layout.addWidget(self.hist_abnormal_combo)
 
         filter_layout.addWidget(QLabel("日期从:"))
-        self.hist_date_from = QLineEdit()
-        self.hist_date_from.setPlaceholderText("2026-05-01")
-        self.hist_date_from.setMaximumWidth(100)
-        self.hist_date_from.textChanged.connect(self._history_search)
+        self.hist_date_from = QDateEdit()
+        self.hist_date_from.setCalendarPopup(True)
+        self.hist_date_from.setDisplayFormat("yyyy-MM-dd")
+        self.hist_date_from.setDate(QDate(2020, 1, 1))
+        self.hist_date_from.setMaximumWidth(120)
+        self.hist_date_from.dateChanged.connect(self._history_search)
         filter_layout.addWidget(self.hist_date_from)
 
         filter_layout.addWidget(QLabel("至:"))
-        self.hist_date_to = QLineEdit()
-        self.hist_date_to.setPlaceholderText("2026-05-07")
-        self.hist_date_to.setMaximumWidth(100)
-        self.hist_date_to.textChanged.connect(self._history_search)
+        self.hist_date_to = QDateEdit()
+        self.hist_date_to.setCalendarPopup(True)
+        self.hist_date_to.setDisplayFormat("yyyy-MM-dd")
+        self.hist_date_to.setDate(QDate(2099, 12, 31))
+        self.hist_date_to.setMaximumWidth(120)
+        self.hist_date_to.dateChanged.connect(self._history_search)
         filter_layout.addWidget(self.hist_date_to)
 
         btn_refresh = QPushButton("刷新")
@@ -1321,15 +1542,39 @@ class MainWindow(QMainWindow):
         # 左侧：图像预览
         img_box = QGroupBox("图像预览")
         img_layout = QVBoxLayout()
+
+        self.hist_scroll = QScrollArea()
+        self.hist_scroll.setWidgetResizable(True)
+        self.hist_scroll.setMinimumHeight(200)
+
         self.hist_preview_label = QLabel("选择一条记录查看云图")
         self.hist_preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.hist_preview_label.setMinimumSize(300, 200)
+        self.hist_preview_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.hist_preview_label.setMinimumSize(1, 1)
         self.hist_preview_label.setStyleSheet(
-            "QLabel { background-color: white; border: 1px solid #ccc; border-radius: 4px; }")
+            "QLabel { background-color: rgba(255,255,255,0.5);"
+            " border: 1px solid rgba(226,232,240,0.8); border-radius: 12px; }")
         self.hist_preview_label.mouseDoubleClickEvent = self._hist_image_dbl_click
         self._hist_orig_pixmap = None
         self._hist_zoomed = False
-        img_layout.addWidget(self.hist_preview_label)
+        self.hist_scroll.setWidget(self.hist_preview_label)
+        img_layout.addWidget(self.hist_scroll)
+
+        # 放大模式控制按钮
+        hist_zoom_ctrl = QHBoxLayout()
+        hist_zoom_ctrl.setSpacing(8)
+        self.hist_zoom_mode_btn = QPushButton("🔍 放大模式")
+        self.hist_zoom_mode_btn.setToolTip("进入放大模式后，在图片上拖拽选中区域即可局部放大")
+        self.hist_zoom_mode_btn.clicked.connect(self._hist_toggle_zoom_mode)
+        hist_zoom_ctrl.addWidget(self.hist_zoom_mode_btn)
+        self.hist_restore_btn = QPushButton("↩ 还原")
+        self.hist_restore_btn.setToolTip("还原到原始视图")
+        self.hist_restore_btn.clicked.connect(self._hist_restore_zoom)
+        self.hist_restore_btn.hide()
+        hist_zoom_ctrl.addWidget(self.hist_restore_btn)
+        hist_zoom_ctrl.addStretch()
+        img_layout.addLayout(hist_zoom_ctrl)
+
         img_box.setLayout(img_layout)
         bottom.addWidget(img_box, 1)
 
@@ -1372,8 +1617,10 @@ class MainWindow(QMainWindow):
         abnormal_text = self.hist_abnormal_combo.currentText()
         is_abnormal = None if abnormal_text == "全部" else (1 if abnormal_text == "异常" else 0)
 
-        date_from = self.hist_date_from.text().strip()
-        date_to = self.hist_date_to.text().strip()
+        from_date = self.hist_date_from.date()
+        date_from = from_date.toString("yyyy-MM-dd") if from_date > QDate(2020, 1, 1) else ""
+        to_date = self.hist_date_to.date()
+        date_to = to_date.toString("yyyy-MM-dd") if to_date < QDate(2099, 12, 31) else ""
 
         records = query_records(search, is_abnormal=is_abnormal,
                                 date_from=date_from, date_to=date_to)
@@ -1405,34 +1652,43 @@ class MainWindow(QMainWindow):
 
         if not has_row:
             self.hist_preview_label.setText("选择一条记录查看云图")
+            self._hist_orig_pixmap = None
             return
 
         img_path = self.hist_table.item(row, 3).text()
+        self._hist_current_image_path = img_path
+        self._hist_zoom_history.clear()
+        self.hist_restore_btn.hide()
+        self._hist_zoomed = False
         if os.path.exists(img_path):
             pixmap = QPixmap(img_path)
             if not pixmap.isNull():
                 self._hist_orig_pixmap = pixmap
-                self._hist_zoomed = False
                 self._scale_hist_image(pixmap)
                 return
         self.hist_preview_label.setText("(图像文件不存在)")
         self._hist_orig_pixmap = None
 
     def _scale_hist_image(self, pixmap):
-        w = self.hist_preview_label.width() - 10 or 300
-        h = self.hist_preview_label.height() - 10 or 200
+        w = self.hist_scroll.width() - 10 or 300
+        h = self.hist_scroll.height() - 10 or 200
         scaled = pixmap.scaled(w, h, Qt.AspectRatioMode.KeepAspectRatio,
                                Qt.TransformationMode.SmoothTransformation)
         self.hist_preview_label.setPixmap(scaled)
 
     def _hist_image_dbl_click(self, event):
+        """双击 — 在全功能查看器中打开；放大模式中则还原"""
         if not self._hist_orig_pixmap:
             return
-        self._hist_zoomed = not self._hist_zoomed
-        if self._hist_zoomed:
-            self.hist_preview_label.setPixmap(self._hist_orig_pixmap)
-        else:
-            self._scale_hist_image(self._hist_orig_pixmap)
+        if self._hist_zoom_mode:
+            self._hist_restore_zoom()
+            return
+        try:
+            self._hist_viewer = ImageViewerWindow(
+                self._hist_current_image_path, '', self)
+            self._hist_viewer.show()
+        except Exception as e:
+            pass
 
     def _history_toggle_abnormal(self):
         row = self.hist_table.currentRow()
@@ -1478,6 +1734,84 @@ class MainWindow(QMainWindow):
             delete_record(record_id)
             self._refresh_history_table(self.hist_search_edit.text())
 
+    # ========== 历史数据放大模式 ==========
+
+    def _hist_toggle_zoom_mode(self):
+        self._hist_zoom_mode = not self._hist_zoom_mode
+        if self._hist_zoom_mode:
+            self.hist_zoom_mode_btn.setText("✕ 退出放大")
+            self.hist_zoom_mode_btn.setStyleSheet(
+                "QPushButton { background: #f43f5e; color: white; font-weight: bold; }")
+            self.hist_preview_label.setCursor(QCursor(Qt.CursorShape.CrossCursor))
+            self.hist_preview_label.installEventFilter(self)
+        else:
+            self._hist_exit_zoom_mode()
+
+    def _hist_exit_zoom_mode(self):
+        self._hist_zoom_mode = False
+        self.hist_zoom_mode_btn.setText("🔍 放大模式")
+        self.hist_zoom_mode_btn.setStyleSheet("")
+        self.hist_preview_label.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
+        self.hist_preview_label.removeEventFilter(self)
+        self._hist_clear_rubber_band()
+        self.hist_restore_btn.hide()
+        if self._hist_orig_pixmap:
+            self._hist_zoom_history.clear()
+            self._hist_zoomed = False
+            self._scale_hist_image(self._hist_orig_pixmap)
+
+    def _hist_restore_zoom(self):
+        if self._hist_zoom_history:
+            self._hist_zoom_history.pop()
+        if self._hist_zoom_history:
+            prev = self._hist_zoom_history[-1]
+            scaled = prev.scaled(self.hist_preview_label.size(),
+                                 Qt.AspectRatioMode.KeepAspectRatio,
+                                 Qt.TransformationMode.SmoothTransformation)
+            self.hist_preview_label.setPixmap(scaled)
+        else:
+            self.hist_restore_btn.hide()
+            if self._hist_orig_pixmap:
+                self._scale_hist_image(self._hist_orig_pixmap)
+        if not self._hist_zoom_history:
+            self.hist_restore_btn.hide()
+
+    def _hist_clear_rubber_band(self):
+        if self._hist_rubber_band:
+            self._hist_rubber_band.hide()
+            self._hist_rubber_band = None
+        self._hist_rubber_origin = None
+
+    def _hist_zoom_to_region(self, label_rect: QRect):
+        if not self._hist_orig_pixmap:
+            return
+        current_pixmap = self.hist_preview_label.pixmap()
+        if not current_pixmap:
+            return
+        label_size = self.hist_preview_label.size()
+        pixmap_rect = current_pixmap.rect()
+        offset_x = (label_size.width() - pixmap_rect.width()) // 2
+        offset_y = (label_size.height() - pixmap_rect.height()) // 2
+        px = max(0, label_rect.x() - offset_x)
+        py = max(0, label_rect.y() - offset_y)
+        pw = min(label_rect.width(), pixmap_rect.width() - px)
+        ph = min(label_rect.height(), pixmap_rect.height() - py)
+        if pw <= 0 or ph <= 0:
+            return
+        scale_x = self._hist_orig_pixmap.width() / pixmap_rect.width()
+        scale_y = self._hist_orig_pixmap.height() / pixmap_rect.height()
+        orig_x = int(px * scale_x)
+        orig_y = int(py * scale_y)
+        orig_w = max(1, min(int(pw * scale_x), self._hist_orig_pixmap.width() - orig_x))
+        orig_h = max(1, min(int(ph * scale_y), self._hist_orig_pixmap.height() - orig_y))
+        cropped = self._hist_orig_pixmap.copy(orig_x, orig_y, orig_w, orig_h)
+        zoomed = cropped.scaled(label_size,
+                                Qt.AspectRatioMode.KeepAspectRatio,
+                                Qt.TransformationMode.SmoothTransformation)
+        self._hist_zoom_history.append(current_pixmap)
+        self.hist_preview_label.setPixmap(zoomed)
+        self.hist_restore_btn.show()
+
     def _history_search(self):
         self._refresh_history_table(self.hist_search_edit.text())
 
@@ -1485,9 +1819,57 @@ class MainWindow(QMainWindow):
         """清除所有筛选条件"""
         self.hist_search_edit.clear()
         self.hist_abnormal_combo.setCurrentIndex(0)
-        self.hist_date_from.clear()
-        self.hist_date_to.clear()
+        self.hist_date_from.setDate(QDate(2020, 1, 1))
+        self.hist_date_to.setDate(QDate(2099, 12, 31))
         self._refresh_history_table()
+
+    # ==================== 放大模式事件过滤器 ====================
+
+    def eventFilter(self, obj, event):
+        """在放大模式下处理鼠标事件进行区域框选（单文件夹/监控/历史 共用）"""
+        from PyQt6.QtCore import QEvent
+
+        # 确定是哪个标签
+        if obj is self.sf_image_label and self._sf_zoom_mode:
+            prefix = '_sf'
+        elif obj is self.mf_image_label and self._mf_zoom_mode:
+            prefix = '_mf'
+        elif obj is self.hist_preview_label and self._hist_zoom_mode:
+            prefix = '_hist'
+        else:
+            return super().eventFilter(obj, event)
+
+        etype = event.type()
+        rubber_band = getattr(self, f'{prefix}_rubber_band')
+
+        if etype == QEvent.Type.MouseButtonPress and \
+           event.button() == Qt.MouseButton.LeftButton:
+            setattr(self, f'{prefix}_rubber_origin', event.pos())
+            if not rubber_band:
+                rubber_band = QRubberBand(QRubberBand.Shape.Rectangle, obj)
+                setattr(self, f'{prefix}_rubber_band', rubber_band)
+            rubber_band.setGeometry(QRect(getattr(self, f'{prefix}_rubber_origin'), QSize()))
+            rubber_band.show()
+            return True
+
+        if etype == QEvent.Type.MouseMove and rubber_band:
+            origin = getattr(self, f'{prefix}_rubber_origin')
+            if origin:
+                rubber_band.setGeometry(QRect(origin, event.pos()).normalized())
+            return True
+
+        if etype == QEvent.Type.MouseButtonRelease and rubber_band:
+            rect = rubber_band.geometry()
+            # 清除
+            rubber_band.hide()
+            setattr(self, f'{prefix}_rubber_band', None)
+            setattr(self, f'{prefix}_rubber_origin', None)
+            if rect.width() > 10 and rect.height() > 10:
+                zoom_method = getattr(self, f'{prefix}_zoom_to_region')
+                zoom_method(rect)
+            return True
+
+        return super().eventFilter(obj, event)
 
     def init_usage_tab(self):
         """初始化使用说明标签页"""
@@ -1500,18 +1882,6 @@ class MainWindow(QMainWindow):
         self.usage_browser.setOpenExternalLinks(True)
         
         # 设置美观简约的样式
-        self.usage_browser.setStyleSheet("""
-            QTextBrowser {
-                background-color: #f8f9fa;
-                border: 1px solid #dee2e6;
-                border-radius: 5px;
-                padding: 15px;
-                font-family: 'Segoe UI', Arial, sans-serif;
-                font-size: 10pt;
-                line-height: 1.6;
-            }
-        """)
-        
         # 读取并显示ReadMe.md文件
         try:
             readme_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "ReadMe.md")

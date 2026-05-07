@@ -99,6 +99,16 @@ Data/
 ProcessedData/
 Heatmaps/
 
+# Project-specific: Simulation test data
+sim_test/
+sim_test_output/
+sim_test_saved/
+SavedResults/
+=6.5.0
+
+# Project-specific: Database
+history.db
+
 # OS generated files
 .DS_Store
 .DS_Store?

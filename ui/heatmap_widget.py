@@ -5,11 +5,11 @@
 """
 
 import os
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                            QPushButton, QFileDialog, QTextEdit, QGroupBox, 
-                            QMessageBox, QScrollArea, QSizePolicy)
-from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtGui import QPixmap, QFont
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                            QPushButton, QFileDialog, QTextEdit, QGroupBox,
+                            QMessageBox, QScrollArea, QSizePolicy, QRubberBand)
+from PyQt6.QtCore import Qt, QSize, QPoint, QRect
+from PyQt6.QtGui import QPixmap, QFont, QCursor
 
 # 导入处理逻辑
 import sys
@@ -17,6 +17,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'logic'))
 from logic.heatmap_thread import HeatmapThread
 # 导入现代风格样式
 from ui.modern_style import MODERN_STYLE
+from ui.image_viewer import ImageViewerWindow
 
 
 class HeatmapWidget(QWidget):
@@ -100,11 +101,33 @@ class HeatmapWidget(QWidget):
         # 添加状态变量跟踪图片缩放状态
         self.is_zoomed = False
         self.original_pixmap = None
+
+        # 放大模式状态
+        self._zoom_mode = False
+        self._rubber_band: QRubberBand | None = None
+        self._rubber_origin: QPoint | None = None
+        self._zoom_history: list[QPixmap] = []  # 用于还原
         
         image_layout.addWidget(self.scroll_area)
         image_group.setLayout(image_layout)
-        image_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)  # 让组也扩展
-        main_layout.addWidget(image_group, 1)  # 使用拉伸因子，让图像区域占据更多空间
+        image_group.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        main_layout.addWidget(image_group, 1)
+
+        # 放大模式控制按钮
+        zoom_ctrl = QHBoxLayout()
+        zoom_ctrl.setSpacing(8)
+        self.zoom_mode_btn = QPushButton("🔍 放大模式")
+        self.zoom_mode_btn.setToolTip("进入放大模式后，在图片上拖拽选中区域即可局部放大")
+        self.zoom_mode_btn.clicked.connect(self._toggle_zoom_mode)
+        zoom_ctrl.addWidget(self.zoom_mode_btn)
+
+        self.restore_btn = QPushButton("↩ 还原")
+        self.restore_btn.setToolTip("还原到原始视图")
+        self.restore_btn.clicked.connect(self._restore_zoom)
+        self.restore_btn.hide()
+        zoom_ctrl.addWidget(self.restore_btn)
+        zoom_ctrl.addStretch()
+        main_layout.addLayout(zoom_ctrl)
         
         # 创建状态显示区域
         status_group = QGroupBox("处理状态")
@@ -178,22 +201,151 @@ class HeatmapWidget(QWidget):
         scrollbar.setValue(scrollbar.maximum())
         
     def on_image_double_click(self, event):
-        """处理图像双击事件，在原始大小和适应大小之间切换"""
+        """双击图片 — 在全功能查看器中打开"""
         if not self.original_pixmap:
             return
-            
-        # 切换缩放状态
-        self.is_zoomed = not self.is_zoomed
-        
-        if self.is_zoomed:
-            # 显示原始大小
-            self.image_label.setPixmap(self.original_pixmap)
-            self.image_label.setMinimumSize(self.original_pixmap.size())
-            self.status_text.append("已切换到原始大小显示")
+        # 在放大模式中，双击还原
+        if self._zoom_mode:
+            self._restore_zoom()
+            return
+        try:
+            self._viewer = ImageViewerWindow(
+                self._current_image_path, self._current_title, self)
+            self._viewer.show()
+        except Exception as e:
+            self.status_text.append(f"打开图片查看器失败: {e}")
+
+    # ==================== 放大模式 ====================
+
+    def _toggle_zoom_mode(self):
+        """切换放大模式"""
+        self._zoom_mode = not self._zoom_mode
+        if self._zoom_mode:
+            self.zoom_mode_btn.setText("✕ 退出放大")
+            self.zoom_mode_btn.setStyleSheet(
+                "QPushButton { background: #f43f5e; color: white; font-weight: bold; }")
+            self.image_label.setCursor(QCursor(Qt.CursorShape.CrossCursor))
+            self.image_label.installEventFilter(self)
+            self.status_text.append("放大模式已开启：在图片上拖拽鼠标选择区域进行局部放大")
         else:
-            # 显示适应大小
+            self._exit_zoom_mode()
+
+    def _exit_zoom_mode(self):
+        """退出放大模式"""
+        self._zoom_mode = False
+        self.zoom_mode_btn.setText("🔍 放大模式")
+        self.zoom_mode_btn.setStyleSheet("")
+        self.image_label.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
+        self.image_label.removeEventFilter(self)
+        self._clear_rubber_band()
+        self.restore_btn.hide()
+        # 恢复适应窗口显示
+        if self.original_pixmap and self._zoom_history:
+            self._zoom_history.clear()
             self.display_image_scaled(self.original_pixmap)
-            self.status_text.append("已切换到适应窗口大小显示")
+
+    def _restore_zoom(self):
+        """还原缩放：从 zoom_history 弹出上一级或直接回到原始"""
+        if self._zoom_history:
+            self._zoom_history.pop()  # 移除当前
+        if self._zoom_history:
+            prev = self._zoom_history[-1]
+            scaled = prev.scaled(self.image_label.size(),
+                                 Qt.AspectRatioMode.KeepAspectRatio,
+                                 Qt.TransformationMode.SmoothTransformation)
+            self.image_label.setPixmap(scaled)
+        else:
+            self.restore_btn.hide()
+            if self.original_pixmap:
+                self.display_image_scaled(self.original_pixmap)
+        if not self._zoom_history:
+            self.restore_btn.hide()
+
+    def _clear_rubber_band(self):
+        if self._rubber_band:
+            self._rubber_band.hide()
+            self._rubber_band = None
+        self._rubber_origin = None
+
+    def eventFilter(self, obj, event):
+        """在放大模式下处理鼠标事件进行区域选择"""
+        if obj is not self.image_label or not self._zoom_mode:
+            return super().eventFilter(obj, event)
+
+        from PyQt6.QtCore import QEvent
+        etype = event.type()
+
+        if etype == QEvent.Type.MouseButtonPress and \
+           event.button() == Qt.MouseButton.LeftButton:
+            self._rubber_origin = event.pos()
+            if not self._rubber_band:
+                self._rubber_band = QRubberBand(
+                    QRubberBand.Shape.Rectangle, self.image_label)
+            self._rubber_band.setGeometry(QRect(self._rubber_origin, QSize()))
+            self._rubber_band.show()
+            return True
+
+        if etype == QEvent.Type.MouseMove and self._rubber_band:
+            self._rubber_band.setGeometry(
+                QRect(self._rubber_origin, event.pos()).normalized())
+            return True
+
+        if etype == QEvent.Type.MouseButtonRelease and self._rubber_band:
+            rect = self._rubber_band.geometry()
+            self._clear_rubber_band()
+            if rect.width() > 10 and rect.height() > 10:
+                self._zoom_to_region(rect)
+            return True
+
+        return super().eventFilter(obj, event)
+
+    def _zoom_to_region(self, label_rect: QRect):
+        """根据在 QLabel 上选中的区域裁剪原始图像并放大显示"""
+        if not self.original_pixmap:
+            return
+
+        current_pixmap = self.image_label.pixmap()
+        if not current_pixmap:
+            return
+
+        label_size = self.image_label.size()
+        pixmap_rect = current_pixmap.rect()
+
+        # 计算 pixmap 在 label 中的偏移（居中显示时）
+        offset_x = (label_size.width() - pixmap_rect.width()) // 2
+        offset_y = (label_size.height() - pixmap_rect.height()) // 2
+
+        # 将 label 坐标映射到当前 pixmap 坐标
+        px = max(0, label_rect.x() - offset_x)
+        py = max(0, label_rect.y() - offset_y)
+        pw = min(label_rect.width(), pixmap_rect.width() - px)
+        ph = min(label_rect.height(), pixmap_rect.height() - py)
+
+        if pw <= 0 or ph <= 0:
+            return
+
+        # 再映射到原始 pixmap 坐标
+        scale_x = self.original_pixmap.width() / pixmap_rect.width()
+        scale_y = self.original_pixmap.height() / pixmap_rect.height()
+
+        orig_x = int(px * scale_x)
+        orig_y = int(py * scale_y)
+        orig_w = int(pw * scale_x)
+        orig_h = int(ph * scale_y)
+
+        orig_w = max(1, min(orig_w, self.original_pixmap.width() - orig_x))
+        orig_h = max(1, min(orig_h, self.original_pixmap.height() - orig_y))
+
+        cropped = self.original_pixmap.copy(orig_x, orig_y, orig_w, orig_h)
+        # 缩放裁剪后的图片填充 label
+        zoomed = cropped.scaled(label_size,
+                                Qt.AspectRatioMode.KeepAspectRatio,
+                                Qt.TransformationMode.SmoothTransformation)
+        # 保存当前视图到历史
+        self._zoom_history.append(current_pixmap)
+        self.image_label.setPixmap(zoomed)
+        self.restore_btn.show()
+        self.status_text.append(f"已放大区域: ({orig_x},{orig_y}) {orig_w}×{orig_h}")
     
     def display_image_scaled(self, pixmap):
         """缩放显示图像以适应显示区域"""
@@ -219,23 +371,25 @@ class HeatmapWidget(QWidget):
     def display_image(self, image_path, title):
         """显示热力图图像"""
         try:
-            # 保存原始图像
+            self._current_image_path = image_path
+            self._current_title = title
+
             self.original_pixmap = QPixmap(image_path)
             if self.original_pixmap.isNull():
                 self.status_text.append("错误：无法加载图像")
                 return
-                
-            # 重置缩放状态
+
             self.is_zoomed = False
-            
-            # 使用缩放后的图像显示
+            self._zoom_history.clear()
+            self.restore_btn.hide()
+
             self.display_image_scaled(self.original_pixmap)
             self.image_label.setText("")
-            
-            # 更新状态文本
+
             self.status_text.append(f"热力图已加载: {os.path.basename(image_path)}")
-            self.status_text.append("提示：双击图片可以切换原始大小/适应大小")
-            
+            self.status_text.append("提示：双击图片可在全功能查看器中打开")
+            self.status_text.append("提示：点击「🔍 放大模式」可在图上框选区域局部放大")
+
         except Exception as e:
             self.status_text.append(f"显示图像时出错: {str(e)}")
             
