@@ -446,8 +446,10 @@ class MainWindow(QMainWindow):
         self.sf_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.sf_image_label.setText("请选择文件夹并开始分析")
         self.sf_image_label.setStyleSheet(
-            "QLabel { background-color: rgba(255,255,255,0.5);"
-            " border: 1px solid rgba(0,0,0,0.06); border-radius: 12px; }")
+            "QLabel {"
+            " background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+            " stop:0 rgba(255,255,255,0.55), stop:1 rgba(255,255,255,0.3));"
+            " border: 1px solid rgba(255,255,255,0.7); border-radius: 16px; }")
         self.sf_image_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.sf_image_label.setMinimumSize(1, 1)
         self.sf_original_pixmap = None

@@ -46,7 +46,13 @@ class HeatmapWidget(QWidget):
         
         file_layout.addWidget(QLabel("CSV文件:"))
         self.file_path_edit = QLabel("未选择文件")
-        self.file_path_edit.setStyleSheet("QLabel { background-color: rgba(255,255,255,0.7); border: 1px solid rgba(0,0,0,0.08); padding: 8px 12px; border-radius: 10px; color: #111827; font-weight: 600; }")
+        self.file_path_edit.setStyleSheet(
+            "QLabel {"
+            " background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+            " stop:0 rgba(255,255,255,0.75), stop:1 rgba(255,255,255,0.5));"
+            " border: 1px solid rgba(0,0,0,0.08);"
+            " padding: 10px 14px; border-radius: 11px;"
+            " color: #111827; font-weight: 600; }")
         file_layout.addWidget(self.file_path_edit, 1)
         
         browse_btn = QPushButton("浏览...")
@@ -91,7 +97,12 @@ class HeatmapWidget(QWidget):
         self.image_label = QLabel()
         self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.image_label.setText("请选择CSV文件并生成热力图")
-        self.image_label.setStyleSheet("QLabel { background-color: rgba(255,255,255,0.5); border: 1px solid rgba(0,0,0,0.06); border-radius: 12px; }")
+        self.image_label.setStyleSheet(
+            "QLabel {"
+            " background-color: qlineargradient(x1:0, y1:0, x2:0, y2:1,"
+            " stop:0 rgba(255,255,255,0.55), stop:1 rgba(255,255,255,0.3));"
+            " border: 1px solid rgba(255,255,255,0.7);"
+            " border-radius: 16px; }")
         self.image_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.image_label.setMinimumSize(1, 1)  # 确保标签可以调整大小
         # 启用鼠标跟踪以支持双击事件
