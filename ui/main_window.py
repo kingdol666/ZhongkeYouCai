@@ -938,7 +938,7 @@ class MainWindow(QMainWindow):
 
     # --- 启动 / 停止监控 ---
     def start_monitoring(self):
-        # 如果启用了自动切换或自动跟随，将监控文件夹设为当天日期路径
+        # 如果启用了自动切换或自动跟随，自动拼接当天日期路径
         if self.mf_auto_switch_cb.isChecked() or self.mf_auto_follow_cb.isChecked():
             base = self.mf_customprofile_edit.text().strip()
             if not base:
@@ -949,15 +949,10 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "路径错误", "无法构建日期路径，请检查CustomProfile路径设置")
                 return
             if not os.path.isdir(today_path):
-                latest = self._find_latest_date_folder(base)
-                if latest:
-                    self._mf_append_log(f"当天路径不存在，使用最新日期文件夹: {latest}")
-                    self.mf_folder_edit.setText(latest)
-                else:
-                    os.makedirs(today_path, exist_ok=True)
-                    self.mf_folder_edit.setText(today_path)
-            else:
-                self.mf_folder_edit.setText(today_path)
+                os.makedirs(today_path, exist_ok=True)
+                self._mf_append_log(f"已创建当天日期文件夹: {today_path}")
+            self.mf_folder_edit.setText(today_path)
+            self._mf_append_log(f"监控目标: {today_path}")
 
         params = self._validate_mf_params()
         if not params:
@@ -995,8 +990,8 @@ class MainWindow(QMainWindow):
         self._monitor_core.status_changed.connect(self._mf_append_log)
         self._monitor_core.start_monitoring(self.mf_folder_edit.text())
 
-        # 启动午夜定时器
-        if self.mf_auto_switch_cb.isChecked():
+        # 启动午夜定时器（零点切换 或 自动跟随 都需要定时检查）
+        if self.mf_auto_switch_cb.isChecked() or self.mf_auto_follow_cb.isChecked():
             self._start_midnight_timer()
 
         self._mf_append_log(f"开始监控: {self.mf_folder_edit.text()}")

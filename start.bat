@@ -3,7 +3,7 @@ setlocal
 title Film Thickness Heatmap Analysis - Launcher
 
 echo ============================================
-echo   膜厚云图分析系统 - Auto Setup ^& Launch
+echo Start Film Thickness Heatmap Analysis System
 echo ============================================
 echo.
 
