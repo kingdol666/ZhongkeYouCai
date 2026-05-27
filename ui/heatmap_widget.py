@@ -7,7 +7,8 @@
 import os
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                             QPushButton, QFileDialog, QTextEdit, QGroupBox,
-                            QMessageBox, QScrollArea, QSizePolicy, QRubberBand)
+                            QMessageBox, QScrollArea, QSizePolicy, QRubberBand,
+                            QLineEdit)
 from PyQt5.QtCore import Qt, QSize, QPoint, QRect
 from PyQt5.QtGui import QPixmap, QFont, QCursor
 
@@ -57,6 +58,34 @@ class HeatmapWidget(QWidget):
         
         file_group.setLayout(file_layout)
         main_layout.addWidget(file_group)
+        
+        # 创建参数设置组
+        param_group = QGroupBox("参数设置")
+        param_layout = QHBoxLayout()
+        param_layout.setContentsMargins(15, 20, 15, 15)
+        param_layout.setSpacing(15)
+        
+        param_layout.addWidget(QLabel("Target:"))
+        self.target_edit = QLineEdit()
+        self.target_edit.setPlaceholderText("目标值")
+        self.target_edit.setFixedWidth(100)
+        param_layout.addWidget(self.target_edit)
+        
+        param_layout.addWidget(QLabel("上限:"))
+        self.upper_edit = QLineEdit()
+        self.upper_edit.setPlaceholderText("上限值")
+        self.upper_edit.setFixedWidth(100)
+        param_layout.addWidget(self.upper_edit)
+        
+        param_layout.addWidget(QLabel("下限:"))
+        self.lower_edit = QLineEdit()
+        self.lower_edit.setPlaceholderText("下限值")
+        self.lower_edit.setFixedWidth(100)
+        param_layout.addWidget(self.lower_edit)
+        
+        param_layout.addStretch()
+        param_group.setLayout(param_layout)
+        main_layout.addWidget(param_group)
         
         # 创建控制按钮组
         control_layout = QHBoxLayout()
@@ -171,14 +200,35 @@ class HeatmapWidget(QWidget):
         if file_path == "未选择文件":
             QMessageBox.warning(self, "文件错误", "请先选择CSV文件")
             return
-            
+        
+        target = None
+        upper = None
+        lower = None
+        
+        target_text = self.target_edit.text().strip()
+        upper_text = self.upper_edit.text().strip()
+        lower_text = self.lower_edit.text().strip()
+        
+        if target_text and upper_text and lower_text:
+            try:
+                target = float(target_text)
+                upper = float(upper_text)
+                lower = float(lower_text)
+            except ValueError:
+                QMessageBox.warning(self, "参数错误", "请输入有效的数值")
+                return
+        elif target_text or upper_text or lower_text:
+            QMessageBox.warning(self, "参数不完整", "请同时填写Target、上限和下限，或全部留空使用默认值")
+            return
+        
         # 禁用控制按钮
         self.generate_btn.setEnabled(False)
         self.stop_btn.setEnabled(True)
         self.status_text.clear()
         
         # 创建并启动热力图生成线程
-        self.heatmap_thread = HeatmapThread(file_path, self.output_dir)
+        self.heatmap_thread = HeatmapThread(file_path, self.output_dir,
+                                           target=target, upper=upper, lower=lower)
         
         # 连接信号
         self.heatmap_thread.progress_updated.connect(self.update_progress)

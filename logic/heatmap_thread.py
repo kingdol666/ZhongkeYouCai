@@ -30,11 +30,14 @@ class HeatmapThread(QThread):
     image_ready = pyqtSignal(str, str)  # 图像准备就绪信号 (图像路径, 标题)
     finished = pyqtSignal(bool, str)   # 完成信号 (成功, 消息)
     
-    def __init__(self, csv_file_path, output_dir=None):
+    def __init__(self, csv_file_path, output_dir=None, target=None, upper=None, lower=None):
         super().__init__()
         self.csv_file_path = csv_file_path
         self.output_dir = output_dir or os.path.dirname(csv_file_path)
         self.is_running = False
+        self.target = target
+        self.upper = upper
+        self.lower = lower
         
     def run(self):
         """执行热力云图绘制"""
@@ -128,17 +131,46 @@ class HeatmapThread(QThread):
                 self.progress_updated.emit(30)
                 self.status_updated.emit("正在创建热力图...")
                 
+                # 计算颜色映射范围
+                data_mean = df.values.mean()
+                
+                use_custom_range = (self.target is not None and 
+                                   self.upper is not None and 
+                                   self.lower is not None)
+                
+                if use_custom_range:
+                    vmin = self.lower
+                    vmax = self.upper
+                    target_val = self.target
+                    self.status_updated.emit(f"使用自定义参数: Target={target_val}, 上限={vmax}, 下限={vmin}")
+                else:
+                    vmin = data_mean * 0.98
+                    vmax = data_mean * 1.02
+                    target_val = data_mean
+                    self.status_updated.emit(f"使用默认参数: Target={target_val:.4f}, 上限={vmax:.4f}, 下限={vmin:.4f}")
+                
+                # 创建自定义颜色映射：下限=最蓝，target=绿色，上限=最红
+                blue_pos = (target_val - vmin) / (vmax - vmin) if vmax != vmin else 0.5
+                red_pos = 1.0
+                
+                if blue_pos <= 0 or blue_pos >= 1:
+                    blue_pos = 0.3
+                
+                colors = [
+                    (0.0, (0, 0, 1)),
+                    (blue_pos, (0, 1, 0)),
+                    (red_pos, (1, 0, 0))
+                ]
+                n_bins = 256
+                cmap = LinearSegmentedColormap.from_list('heat_map', colors, N=n_bins)
+                
                 # 设置图形大小
                 fig, ax = plt.subplots(figsize=(12, 8))
                 
-                # 创建自定义颜色映射
-                colors = ['#0000FF', '#00FFFF', '#00FF00', '#FFFF00', '#FF0000']
-                n_bins = 100
-                cmap = LinearSegmentedColormap.from_list('heat_map', colors, N=n_bins)
-                
                 # 绘制热力图
                 im = ax.imshow(df.values, aspect='auto', cmap=cmap, origin='lower',
-                              extent=[min(x_data), max(x_data), 0, max(1, len(df) - 1)])
+                              extent=[min(x_data), max(x_data), 0, max(1, len(df) - 1)],
+                              vmin=vmin, vmax=vmax)
                 
                 # 设置Origin风格的坐标轴样式
                 ax.set_xlabel('模头位置 (mm)', fontsize=12, fontweight='bold')
