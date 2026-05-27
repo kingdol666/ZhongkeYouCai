@@ -8,8 +8,8 @@ import os
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                             QPushButton, QFileDialog, QTextEdit, QGroupBox,
                             QMessageBox, QScrollArea, QSizePolicy, QRubberBand,
-                            QLineEdit)
-from PyQt5.QtCore import Qt, QSize, QPoint, QRect
+                            QLineEdit, QApplication)
+from PyQt5.QtCore import Qt, QSize, QPoint, QRect, QEvent
 from PyQt5.QtGui import QPixmap, QFont, QCursor
 
 # 确保项目根目录在 sys.path 中
@@ -26,6 +26,12 @@ class HeatmapWidget(QWidget):
         super().__init__()
         self.heatmap_thread = None
         self.init_ui()
+
+    def resizeEvent(self, event):
+        """窗口尺寸变化时自动缩放图片"""
+        super().resizeEvent(event)
+        if hasattr(self, 'original_pixmap') and self.original_pixmap and not getattr(self, 'is_zoomed', False):
+            self.display_image_scaled(self.original_pixmap)
         
     def init_ui(self):
         """初始化UI"""

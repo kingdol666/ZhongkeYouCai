@@ -11,8 +11,8 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QH
                             QTextEdit, QGroupBox, QGridLayout, QMessageBox,
                             QTextBrowser, QScrollArea, QSizePolicy, QCheckBox,
                             QStackedWidget, QFrame, QDateEdit, QRubberBand)
-from PyQt5.QtCore import Qt, QTimer, QDate, QPoint, QRect, QSize
-from PyQt5.QtGui import QFont, QPixmap, QCursor
+from PyQt5.QtCore import Qt, QTimer, QDate, QPoint, QRect, QSize, QEvent
+from PyQt5.QtGui import QFont, QPixmap, QCursor, QScreen
 
 # 确保项目根目录在 sys.path 中
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -59,7 +59,17 @@ class MainWindow(QMainWindow):
     def init_ui(self):
         """初始化UI — 左侧可折叠导航 + 右侧内容区"""
         self.setWindowTitle("中科优材 · 膜厚云图分析系统")
-        self.setGeometry(100, 100, 1280, 800)
+
+        # 根据屏幕分辨率自适应窗口大小
+        screen = QApplication.primaryScreen().geometry()
+        sw, sh = screen.width(), screen.height()
+        win_w = max(960, int(sw * 0.85))
+        win_h = max(640, int(sh * 0.85))
+        self.setGeometry(100, 100, win_w, win_h)
+        self.setMinimumSize(800, 600)
+
+        # 计算响应式侧边栏宽度
+        self._sidebar_width = max(180, min(240, int(sw * 0.15)))
 
         # 设置应用图标
         icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "icon.png")
@@ -96,7 +106,7 @@ class MainWindow(QMainWindow):
         # ---------- 左侧导航栏 ----------
         self.sidebar = QFrame()
         self.sidebar.setObjectName("sidebar")
-        self.sidebar.setFixedWidth(220)
+        self.sidebar.setFixedWidth(self._sidebar_width)
         sidebar_layout = QVBoxLayout(self.sidebar)
         sidebar_layout.setContentsMargins(0, 0, 0, 0)
         sidebar_layout.setSpacing(0)
@@ -178,6 +188,8 @@ class MainWindow(QMainWindow):
         param_layout = QGridLayout()
         param_layout.setContentsMargins(15, 20, 15, 15)
         param_layout.setSpacing(12)
+        param_layout.setColumnStretch(1, 3)
+        param_layout.setColumnStretch(2, 0)
         
         # 输入文件夹
         param_layout.addWidget(QLabel("输入文件夹:"), 0, 0)
@@ -370,6 +382,8 @@ class MainWindow(QMainWindow):
         param_layout = QGridLayout()
         param_layout.setContentsMargins(15, 20, 15, 15)
         param_layout.setSpacing(12)
+        param_layout.setColumnStretch(1, 3)
+        param_layout.setColumnStretch(2, 0)
 
         # 文件夹选择
         param_layout.addWidget(QLabel("处理文件夹:"), 0, 0)
@@ -740,6 +754,9 @@ class MainWindow(QMainWindow):
         param_layout = QGridLayout()
         param_layout.setContentsMargins(15, 20, 15, 15)
         param_layout.setSpacing(10)
+        param_layout.setColumnStretch(1, 2)
+        param_layout.setColumnStretch(2, 2)
+        param_layout.setColumnStretch(3, 0)
 
         # 监控文件夹
         param_layout.addWidget(QLabel("监控文件夹:"), 0, 0)
@@ -1598,7 +1615,7 @@ class MainWindow(QMainWindow):
                 btn.setToolTip(label)
             self.collapse_btn.setToolTip("展开导航")
         else:
-            self.sidebar.setFixedWidth(220)
+            self.sidebar.setFixedWidth(self._sidebar_width)
             self._logo_title.setText("🔆  膜厚云图分析")
             self._logo_subtitle.show()
             self.collapse_btn.setText("◀  折叠导航")
@@ -1639,7 +1656,6 @@ class MainWindow(QMainWindow):
         self.hist_date_from.setCalendarPopup(True)
         self.hist_date_from.setDisplayFormat("yyyy-MM-dd")
         self.hist_date_from.setDate(QDate(2020, 1, 1))
-        self.hist_date_from.setMaximumWidth(120)
         self.hist_date_from.dateChanged.connect(self._history_search)
         filter_layout.addWidget(self.hist_date_from)
 
@@ -1648,7 +1664,6 @@ class MainWindow(QMainWindow):
         self.hist_date_to.setCalendarPopup(True)
         self.hist_date_to.setDisplayFormat("yyyy-MM-dd")
         self.hist_date_to.setDate(QDate(2099, 12, 31))
-        self.hist_date_to.setMaximumWidth(120)
         self.hist_date_to.dateChanged.connect(self._history_search)
         filter_layout.addWidget(self.hist_date_to)
 
@@ -1967,6 +1982,21 @@ class MainWindow(QMainWindow):
         self.hist_date_from.setDate(QDate(2020, 1, 1))
         self.hist_date_to.setDate(QDate(2099, 12, 31))
         self._refresh_history_table()
+
+    # ==================== 窗口自适应 ====================
+
+    def resizeEvent(self, event):
+        """窗口尺寸变化时自动缩放图片"""
+        super().resizeEvent(event)
+        # 单文件夹Tab图片自适应
+        if hasattr(self, 'sf_original_pixmap') and self.sf_original_pixmap and not getattr(self, '_sf_is_zoomed', False):
+            self._sf_scale_image(self.sf_original_pixmap)
+        # 监控Tab图片自适应
+        if hasattr(self, 'mf_original_pixmap') and self.mf_original_pixmap and not getattr(self, '_mf_is_zoomed', False):
+            self._mf_scale_image(self.mf_original_pixmap)
+        # 历史Tab图片自适应
+        if hasattr(self, '_hist_orig_pixmap') and self._hist_orig_pixmap and not getattr(self, '_hist_is_zoomed', False):
+            self._scale_hist_image(self._hist_orig_pixmap)
 
     # ==================== 放大模式事件过滤器 ====================
 
