@@ -122,6 +122,11 @@ echo ============================================
 echo.
 
 cd /d "%~dp0"
+
+:: Start simulation tool in a new window
+start "Production Simulator" "%PYTHON_EXE%" "tools\simulate_production.py"
+
+:: Start main application
 "%PYTHON_EXE%" "run_ui.py"
 
 if errorlevel 1 (
