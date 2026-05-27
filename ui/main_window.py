@@ -190,7 +190,15 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(15)
         
-        # 创建参数设置组
+        # 创建参数设置组（带滚动容器）
+        param_scroll = QScrollArea()
+        param_scroll.setWidgetResizable(True)
+        param_scroll.setMinimumSize(500, 220)
+        param_scroll.setMaximumHeight(320)
+        param_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        param_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        param_scroll.setStyleSheet("QScrollArea { border: 1px solid rgba(255,255,255,0.5); border-radius: 12px; background: transparent; }")
+
         param_group = QGroupBox("参数设置")
         param_layout = QGridLayout()
         param_layout.setContentsMargins(15, 20, 15, 15)
@@ -239,7 +247,15 @@ class MainWindow(QMainWindow):
         param_layout.addWidget(self.end_pos_edit, 5, 1)
         
         param_group.setLayout(param_layout)
-        main_layout.addWidget(param_group)
+
+        # 将 param_group 放入滚动容器
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.addWidget(param_group)
+        param_scroll.setWidget(scroll_content)
+
+        main_layout.addWidget(param_scroll)
         
         # 创建控制按钮组
         control_layout = QHBoxLayout()
@@ -384,7 +400,15 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(12)
 
-        # --- 参数设置组 ---
+        # --- 参数设置组（带滚动容器） ---
+        param_scroll = QScrollArea()
+        param_scroll.setWidgetResizable(True)
+        param_scroll.setMinimumSize(500, 260)
+        param_scroll.setMaximumHeight(380)
+        param_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        param_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        param_scroll.setStyleSheet("QScrollArea { border: 1px solid rgba(255,255,255,0.5); border-radius: 12px; background: transparent; }")
+
         param_group = QGroupBox("参数设置")
         param_layout = QGridLayout()
         param_layout.setContentsMargins(15, 20, 15, 15)
@@ -451,7 +475,15 @@ class MainWindow(QMainWindow):
         param_layout.addWidget(self.sf_lower, 8, 1)
 
         param_group.setLayout(param_layout)
-        main_layout.addWidget(param_group)
+
+        # 将 param_group 放入滚动容器
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.addWidget(param_group)
+        param_scroll.setWidget(scroll_content)
+
+        main_layout.addWidget(param_scroll)
 
         # --- 控制按钮 ---
         control_layout = QHBoxLayout()
@@ -756,7 +788,15 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(10)
 
-        # --- 参数设置组 ---
+        # --- 参数设置组（带滚动容器） ---
+        param_scroll = QScrollArea()
+        param_scroll.setWidgetResizable(True)
+        param_scroll.setMinimumSize(500, 300)
+        param_scroll.setMaximumHeight(420)
+        param_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        param_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        param_scroll.setStyleSheet("QScrollArea { border: 1px solid rgba(255,255,255,0.5); border-radius: 12px; background: transparent; }")
+
         param_group = QGroupBox("参数设置")
         param_layout = QGridLayout()
         param_layout.setContentsMargins(15, 20, 15, 15)
@@ -867,7 +907,15 @@ class MainWindow(QMainWindow):
         param_layout.addWidget(self.mf_remarks_edit, 10, 3)
 
         param_group.setLayout(param_layout)
-        main_layout.addWidget(param_group)
+
+        # 将 param_group 放入滚动容器
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.addWidget(param_group)
+        param_scroll.setWidget(scroll_content)
+
+        main_layout.addWidget(param_scroll)
 
         # --- 控制按钮行 ---
         ctrl_layout = QHBoxLayout()

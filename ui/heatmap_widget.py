@@ -71,7 +71,15 @@ class HeatmapWidget(QWidget):
         file_group.setLayout(file_layout)
         main_layout.addWidget(file_group)
         
-        # 创建参数设置组
+        # 创建参数设置组（带滚动容器）
+        param_scroll = QScrollArea()
+        param_scroll.setWidgetResizable(True)
+        param_scroll.setMinimumSize(400, 60)
+        param_scroll.setMaximumHeight(100)
+        param_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        param_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        param_scroll.setStyleSheet("QScrollArea { border: 1px solid rgba(255,255,255,0.5); border-radius: 12px; background: transparent; }")
+
         param_group = QGroupBox("参数设置")
         param_layout = QHBoxLayout()
         param_layout.setContentsMargins(15, 20, 15, 15)
@@ -100,7 +108,15 @@ class HeatmapWidget(QWidget):
         
         param_layout.addStretch()
         param_group.setLayout(param_layout)
-        main_layout.addWidget(param_group)
+
+        # 将 param_group 放入滚动容器
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setContentsMargins(0, 0, 0, 0)
+        scroll_layout.addWidget(param_group)
+        param_scroll.setWidget(scroll_content)
+
+        main_layout.addWidget(param_scroll)
         
         # 创建控制按钮组
         control_layout = QHBoxLayout()
