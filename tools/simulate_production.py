@@ -23,14 +23,14 @@ import sys
 import shutil
 from datetime import datetime, timedelta
 
-from PyQt6.QtWidgets import (
+from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QTextEdit, QFileDialog, QLabel,
     QGroupBox, QGridLayout, QProgressBar,
     QMessageBox, QScrollArea, QLineEdit
 )
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QFont, QPixmap
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QFont, QPixmap
 
 # 确保项目路径可导入
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -317,7 +317,7 @@ class SimulationWindow(QWidget):
         self.scroll.setWidgetResizable(True)
         self.scroll.setMinimumHeight(200)
         self.img_label = QLabel("云图将在此显示")
-        self.img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.img_label.setAlignment(Qt.AlignCenter)
         self.img_label.setStyleSheet(
             "QLabel { background-color: white; border: 2px solid #ccc; border-radius: 6px; }")
         self._orig_pixmap = None

@@ -8,7 +8,7 @@ import sys
 import os
 
 # ============================================================
-# !! 必须在任何 PyQt6 导入之前设置 Windows AppUserModelID !!
+# !! 必须在任何 PyQt5 导入之前设置 Windows AppUserModelID !!
 # 否则任务栏会一直显示 "Python"
 # ============================================================
 if sys.platform == "win32":
@@ -23,8 +23,8 @@ if sys.platform == "win32":
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
 
-from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import QCoreApplication
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtCore import QCoreApplication
 from ui.main_window import MainWindow
 from ui.modern_style import MODERN_STYLE
 

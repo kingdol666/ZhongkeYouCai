@@ -6,13 +6,13 @@
 
 import sys
 import os
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                             QLabel, QLineEdit, QPushButton, QFileDialog, QProgressBar,
                             QTextEdit, QGroupBox, QGridLayout, QMessageBox,
                             QTextBrowser, QScrollArea, QSizePolicy, QCheckBox,
                             QStackedWidget, QFrame, QDateEdit, QRubberBand)
-from PyQt6.QtCore import Qt, QTimer, QDate, QPoint, QRect, QSize
-from PyQt6.QtGui import QFont, QPixmap, QCursor
+from PyQt5.QtCore import Qt, QTimer, QDate, QPoint, QRect, QSize
+from PyQt5.QtGui import QFont, QPixmap, QCursor
 
 # 确保项目根目录在 sys.path 中
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
         # 设置应用图标
         icon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "icon.png")
         if os.path.exists(icon_path):
-            from PyQt6.QtGui import QIcon
+            from PyQt5.QtGui import QIcon
             self.setWindowIcon(QIcon(icon_path))
 
         central_widget = QWidget()
@@ -447,7 +447,7 @@ class MainWindow(QMainWindow):
         self.sf_scroll.setMinimumHeight(300)
 
         self.sf_image_label = QLabel()
-        self.sf_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.sf_image_label.setAlignment(Qt.AlignCenter)
         self.sf_image_label.setText("请选择文件夹并开始分析")
         self.sf_image_label.setStyleSheet(
             "QLabel {"
@@ -838,7 +838,7 @@ class MainWindow(QMainWindow):
         self.mf_scroll.setMinimumHeight(280)
 
         self.mf_image_label = QLabel()
-        self.mf_image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.mf_image_label.setAlignment(Qt.AlignCenter)
         self.mf_image_label.setText("等待监控启动...")
         self.mf_image_label.setStyleSheet(
             "QLabel { background-color: rgba(255,255,255,0.5);"
@@ -1543,7 +1543,7 @@ class MainWindow(QMainWindow):
         filter_layout.addWidget(self.hist_search_edit, 1)
 
         filter_layout.addWidget(QLabel("异常:"))
-        from PyQt6.QtWidgets import QComboBox
+        from PyQt5.QtWidgets import QComboBox
         self.hist_abnormal_combo = QComboBox()
         self.hist_abnormal_combo.addItems(["全部", "正常", "异常"])
         self.hist_abnormal_combo.currentIndexChanged.connect(self._history_search)
@@ -1578,7 +1578,7 @@ class MainWindow(QMainWindow):
         layout.addLayout(filter_layout)
 
         # --- 表格 ---
-        from PyQt6.QtWidgets import QTableWidget, QHeaderView, QAbstractItemView
+        from PyQt5.QtWidgets import QTableWidget, QHeaderView, QAbstractItemView
         self.hist_table = QTableWidget()
         self.hist_table.setColumnCount(6)
         self.hist_table.setHorizontalHeaderLabels(["ID", "保存时间", "CSV路径", "图像路径", "异常", "备注"])
@@ -1608,7 +1608,7 @@ class MainWindow(QMainWindow):
         self.hist_scroll.setMinimumHeight(200)
 
         self.hist_preview_label = QLabel("选择一条记录查看云图")
-        self.hist_preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.hist_preview_label.setAlignment(Qt.AlignCenter)
         self.hist_preview_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.hist_preview_label.setMinimumSize(1, 1)
         self.hist_preview_label.setStyleSheet(
@@ -1695,7 +1695,7 @@ class MainWindow(QMainWindow):
                 rec["remarks"]
             ]
             for col, text in enumerate(items):
-                from PyQt6.QtWidgets import QTableWidgetItem
+                from PyQt5.QtWidgets import QTableWidgetItem
                 item = QTableWidgetItem(text)
                 if col == 4 and rec["is_abnormal"]:
                     item.setForeground(Qt.GlobalColor.red)
@@ -1766,7 +1766,7 @@ class MainWindow(QMainWindow):
             return
         record_id = int(self.hist_table.item(row, 0).text())
         current = self.hist_table.item(row, 5).text()
-        from PyQt6.QtWidgets import QInputDialog
+        from PyQt5.QtWidgets import QInputDialog
         text, ok = QInputDialog.getText(self, "编辑备注", "备注内容:", text=current)
         if ok:
             update_record(record_id, remarks=text)
@@ -1887,7 +1887,7 @@ class MainWindow(QMainWindow):
 
     def eventFilter(self, obj, event):
         """在放大模式下处理鼠标事件进行区域框选（单文件夹/监控/历史 共用）"""
-        from PyQt6.QtCore import QEvent
+        from PyQt5.QtCore import QEvent
 
         # 确定是哪个标签
         if obj is self.sf_image_label and self._sf_zoom_mode:

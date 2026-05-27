@@ -10,7 +10,7 @@ import re
 import shutil
 from datetime import datetime
 
-from PyQt6.QtCore import QObject, QFileSystemWatcher, QTimer, pyqtSignal
+from PyQt5.QtCore import QObject, QFileSystemWatcher, QTimer, pyqtSignal
 
 
 def extract_roll_number(parent_dir: str) -> str | None:

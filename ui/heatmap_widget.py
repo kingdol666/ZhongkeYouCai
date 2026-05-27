@@ -5,11 +5,11 @@
 """
 
 import os
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                             QPushButton, QFileDialog, QTextEdit, QGroupBox,
                             QMessageBox, QScrollArea, QSizePolicy, QRubberBand)
-from PyQt6.QtCore import Qt, QSize, QPoint, QRect
-from PyQt6.QtGui import QPixmap, QFont, QCursor
+from PyQt5.QtCore import Qt, QSize, QPoint, QRect
+from PyQt5.QtGui import QPixmap, QFont, QCursor
 
 # 确保项目根目录在 sys.path 中
 import sys
@@ -90,7 +90,7 @@ class HeatmapWidget(QWidget):
         
         # 创建图像标签
         self.image_label = QLabel()
-        self.image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_label.setAlignment(Qt.AlignCenter)
         self.image_label.setText("请选择CSV文件并生成热力图")
         self.image_label.setStyleSheet(
             "QLabel {"
@@ -278,7 +278,7 @@ class HeatmapWidget(QWidget):
         if obj is not self.image_label or not self._zoom_mode:
             return super().eventFilter(obj, event)
 
-        from PyQt6.QtCore import QEvent
+        from PyQt5.QtCore import QEvent
         etype = event.type()
 
         if etype == QEvent.Type.MouseButtonPress and \
