@@ -1327,12 +1327,28 @@ class MainWindow(QMainWindow):
             self._auto_save_previous()
 
         params = self._monitor_params
+
+        # 实时读取 Target/上限/下限，每次绘制都生效
+        target = None
+        upper = None
+        lower = None
+        target_text = self.mf_target.text().strip()
+        upper_text = self.mf_upper.text().strip()
+        lower_text = self.mf_lower.text().strip()
+        if target_text and upper_text and lower_text:
+            try:
+                target = float(target_text)
+                upper = float(upper_text)
+                lower = float(lower_text)
+            except ValueError:
+                pass
+
         self._monitor_thread = SingleFolderProcessorThread(
             parent_dir,
             self.mf_output_edit.text(),
             params['start_row'], params['end_row'],
             params['start_pos'], params['end_pos'],
-            target=params.get('target'), upper=params.get('upper'), lower=params.get('lower')
+            target=target, upper=upper, lower=lower
         )
         self._monitor_thread.progress_updated.connect(self.mf_progress.setValue)
         self._monitor_thread.status_updated.connect(self._mf_append_log)
