@@ -185,7 +185,8 @@ class SingleFolderProcessorThread(QThread):
     image_ready = pyqtSignal(str, str)
     finished = pyqtSignal(bool, str)
 
-    def __init__(self, folder_path, output_folder, start_row, end_row, start_pos, end_pos):
+    def __init__(self, folder_path, output_folder, start_row, end_row, start_pos, end_pos,
+                 target=None, upper=None, lower=None):
         super().__init__()
         self.folder_path = folder_path
         self.output_folder = output_folder
@@ -194,6 +195,9 @@ class SingleFolderProcessorThread(QThread):
         self.start_pos = start_pos
         self.end_pos = end_pos
         self.is_running = False
+        self.target = target
+        self.upper = upper
+        self.lower = lower
 
     def _calculate_position_columns(self, num_points):
         step = (self.end_pos - self.start_pos) / (num_points - 1)
@@ -307,12 +311,44 @@ class SingleFolderProcessorThread(QThread):
         self.progress_updated.emit(70)
         self.status_updated.emit("正在生成热力云图...")
 
+        # 计算颜色映射范围
+        data_mean = df.values.mean()
+
+        use_custom_range = (self.target is not None and
+                           self.upper is not None and
+                           self.lower is not None)
+
+        if use_custom_range:
+            vmin = self.lower
+            vmax = self.upper
+            target_val = self.target
+            self.status_updated.emit(f"使用自定义参数: Target={target_val}, 上限={vmax}, 下限={vmin}")
+        else:
+            vmin = data_mean * 0.98
+            vmax = data_mean * 1.02
+            target_val = data_mean
+            self.status_updated.emit(f"使用默认参数: Target={target_val:.4f}, 上限={vmax:.4f}, 下限={vmin:.4f}")
+
+        # 创建自定义颜色映射：下限=最蓝，target=绿色，上限=最红
+        blue_pos = (target_val - vmin) / (vmax - vmin) if vmax != vmin else 0.5
+        red_pos = 1.0
+
+        if blue_pos <= 0 or blue_pos >= 1:
+            blue_pos = 0.3
+
+        colors = [
+            (0.0, (0, 0, 1)),
+            (blue_pos, (0, 1, 0)),
+            (red_pos, (1, 0, 0))
+        ]
+        n_bins = 256
+        cmap = LinearSegmentedColormap.from_list('heat_map', colors, N=n_bins)
+
         fig, ax = plt.subplots(figsize=(12, 8))
-        colors = ['#0000FF', '#00FFFF', '#00FF00', '#FFFF00', '#FF0000']
-        cmap = LinearSegmentedColormap.from_list('heat_map', colors, N=100)
 
         im = ax.imshow(df.values, aspect='auto', cmap=cmap, origin='lower',
-                       extent=[min(positions), max(positions), 0, max(1, len(df) - 1)])
+                       extent=[min(positions), max(positions), 0, max(1, len(df) - 1)],
+                       vmin=vmin, vmax=vmax)
 
         ax.set_xlabel('模头位置 (mm)', fontsize=12, fontweight='bold')
         ax.set_ylabel('时间', fontsize=12, fontweight='bold')

@@ -411,6 +411,24 @@ class MainWindow(QMainWindow):
         self.sf_end_pos = QLineEdit("14.39")
         param_layout.addWidget(self.sf_end_pos, 5, 1)
 
+        # Target值
+        param_layout.addWidget(QLabel("Target:"), 6, 0)
+        self.sf_target = QLineEdit()
+        self.sf_target.setPlaceholderText("留空使用默认值")
+        param_layout.addWidget(self.sf_target, 6, 1)
+
+        # 上限
+        param_layout.addWidget(QLabel("上限:"), 7, 0)
+        self.sf_upper = QLineEdit()
+        self.sf_upper.setPlaceholderText("留空使用默认值")
+        param_layout.addWidget(self.sf_upper, 7, 1)
+
+        # 下限
+        param_layout.addWidget(QLabel("下限:"), 8, 0)
+        self.sf_lower = QLineEdit()
+        self.sf_lower.setPlaceholderText("留空使用默认值")
+        param_layout.addWidget(self.sf_lower, 8, 1)
+
         param_group.setLayout(param_layout)
         main_layout.addWidget(param_group)
 
@@ -524,8 +542,25 @@ class MainWindow(QMainWindow):
             if not os.path.isdir(self.sf_folder_edit.text()):
                 QMessageBox.warning(self, "路径错误", "请选择有效的处理文件夹")
                 return None
+
+            target = None
+            upper = None
+            lower = None
+            target_text = self.sf_target.text().strip()
+            upper_text = self.sf_upper.text().strip()
+            lower_text = self.sf_lower.text().strip()
+
+            if target_text and upper_text and lower_text:
+                target = float(target_text)
+                upper = float(upper_text)
+                lower = float(lower_text)
+            elif target_text or upper_text or lower_text:
+                QMessageBox.warning(self, "参数不完整", "请同时填写Target、上限和下限，或全部留空使用默认值")
+                return None
+
             return dict(start_row=start_row, end_row=end_row,
-                        start_pos=start_pos, end_pos=end_pos)
+                        start_pos=start_pos, end_pos=end_pos,
+                        target=target, upper=upper, lower=lower)
         except ValueError:
             QMessageBox.warning(self, "参数错误", "请输入有效的数字")
             return None
@@ -544,7 +579,8 @@ class MainWindow(QMainWindow):
             self.sf_folder_edit.text(),
             self.sf_output_edit.text(),
             params['start_row'], params['end_row'],
-            params['start_pos'], params['end_pos']
+            params['start_pos'], params['end_pos'],
+            target=params.get('target'), upper=params.get('upper'), lower=params.get('lower')
         )
         self.single_folder_thread.progress_updated.connect(self.sf_progress.setValue)
         self.single_folder_thread.status_updated.connect(self._sf_update_status)
@@ -757,22 +793,37 @@ class MainWindow(QMainWindow):
         self.mf_end_pos = QLineEdit("14.39")
         param_layout.addWidget(self.mf_end_pos, 5, 3)
 
+        # Target / 上限 / 下限
+        param_layout.addWidget(QLabel("Target:"), 6, 0)
+        self.mf_target = QLineEdit()
+        self.mf_target.setPlaceholderText("留空使用默认值")
+        param_layout.addWidget(self.mf_target, 6, 1)
+        param_layout.addWidget(QLabel("上限:"), 6, 2)
+        self.mf_upper = QLineEdit()
+        self.mf_upper.setPlaceholderText("留空使用默认值")
+        param_layout.addWidget(self.mf_upper, 6, 3)
+
+        param_layout.addWidget(QLabel("下限:"), 7, 0)
+        self.mf_lower = QLineEdit()
+        self.mf_lower.setPlaceholderText("留空使用默认值")
+        param_layout.addWidget(self.mf_lower, 7, 1)
+
         # 每日零点自动切换
         self.mf_auto_switch_cb = QCheckBox("每日零点自动切换")
         self.mf_auto_switch_cb.setToolTip("启用后，每日零点自动将监控文件夹切换为当天日期对应的子文件夹")
         self.mf_auto_switch_cb.stateChanged.connect(self._on_auto_switch_toggled)
-        param_layout.addWidget(self.mf_auto_switch_cb, 6, 0)
-        param_layout.addWidget(QLabel("CustomProfile路径:"), 6, 1)
+        param_layout.addWidget(self.mf_auto_switch_cb, 8, 0)
+        param_layout.addWidget(QLabel("CustomProfile路径:"), 8, 1)
         self.mf_customprofile_edit = QLineEdit()
         self.mf_customprofile_edit.setPlaceholderText("D:\\...\\Data\\CustomProfile")
         self.mf_customprofile_edit.setEnabled(False)
-        param_layout.addWidget(self.mf_customprofile_edit, 6, 2)
+        param_layout.addWidget(self.mf_customprofile_edit, 8, 2)
         btn_cp = QPushButton("浏览...")
         btn_cp.setObjectName("browseButton")
         btn_cp.clicked.connect(self.browse_mf_customprofile)
         btn_cp.setEnabled(False)
         self._btn_cp_browse = btn_cp
-        param_layout.addWidget(btn_cp, 6, 3)
+        param_layout.addWidget(btn_cp, 8, 3)
 
         # 自动跟随最新文件夹（独立于零点切换）
         self.mf_auto_follow_cb = QCheckBox("自动跟随最新文件夹")
@@ -780,16 +831,16 @@ class MainWindow(QMainWindow):
             "启用后，定时扫描磁盘上的最新日期文件夹并自动切换监控目标；\n"
             "关闭则始终监控下方设置的固定文件夹，不会自动跳转")
         self.mf_auto_follow_cb.stateChanged.connect(self._on_auto_switch_toggled)
-        param_layout.addWidget(self.mf_auto_follow_cb, 7, 0, 1, 4)
+        param_layout.addWidget(self.mf_auto_follow_cb, 9, 0, 1, 4)
 
         # 异常标记 & 备注
-        param_layout.addWidget(QLabel("是否异常:"), 8, 0)
+        param_layout.addWidget(QLabel("是否异常:"), 10, 0)
         self.mf_abnormal_cb = QCheckBox("标记为异常")
-        param_layout.addWidget(self.mf_abnormal_cb, 8, 1)
-        param_layout.addWidget(QLabel("备注:"), 8, 2)
+        param_layout.addWidget(self.mf_abnormal_cb, 10, 1)
+        param_layout.addWidget(QLabel("备注:"), 10, 2)
         self.mf_remarks_edit = QLineEdit()
         self.mf_remarks_edit.setPlaceholderText("可选备注信息...")
-        param_layout.addWidget(self.mf_remarks_edit, 8, 3)
+        param_layout.addWidget(self.mf_remarks_edit, 10, 3)
 
         param_group.setLayout(param_layout)
         main_layout.addWidget(param_group)
@@ -930,8 +981,25 @@ class MainWindow(QMainWindow):
                 else:
                     QMessageBox.warning(self, "路径错误", "请选择有效的监控文件夹")
                     return None
+
+            target = None
+            upper = None
+            lower = None
+            target_text = self.mf_target.text().strip()
+            upper_text = self.mf_upper.text().strip()
+            lower_text = self.mf_lower.text().strip()
+
+            if target_text and upper_text and lower_text:
+                target = float(target_text)
+                upper = float(upper_text)
+                lower = float(lower_text)
+            elif target_text or upper_text or lower_text:
+                QMessageBox.warning(self, "参数不完整", "请同时填写Target、上限和下限，或全部留空使用默认值")
+                return None
+
             return dict(start_row=start_row, end_row=end_row,
-                        start_pos=start_pos, end_pos=end_pos)
+                        start_pos=start_pos, end_pos=end_pos,
+                        target=target, upper=upper, lower=lower)
         except ValueError:
             QMessageBox.warning(self, "参数错误", "请输入有效的数字")
             return None
@@ -1263,7 +1331,8 @@ class MainWindow(QMainWindow):
             parent_dir,
             self.mf_output_edit.text(),
             params['start_row'], params['end_row'],
-            params['start_pos'], params['end_pos']
+            params['start_pos'], params['end_pos'],
+            target=params.get('target'), upper=params.get('upper'), lower=params.get('lower')
         )
         self._monitor_thread.progress_updated.connect(self.mf_progress.setValue)
         self._monitor_thread.status_updated.connect(self._mf_append_log)
