@@ -80,19 +80,22 @@ class HeatmapWidget(QWidget):
         param_layout.addWidget(QLabel("Target:"))
         self.target_edit = QLineEdit()
         self.target_edit.setPlaceholderText("目标值")
-        self.target_edit.setFixedWidth(100)
+        self.target_edit.setMinimumWidth(80)
+        self.target_edit.setMaximumWidth(150)
         param_layout.addWidget(self.target_edit)
         
         param_layout.addWidget(QLabel("上限:"))
         self.upper_edit = QLineEdit()
         self.upper_edit.setPlaceholderText("上限值")
-        self.upper_edit.setFixedWidth(100)
+        self.upper_edit.setMinimumWidth(80)
+        self.upper_edit.setMaximumWidth(150)
         param_layout.addWidget(self.upper_edit)
         
         param_layout.addWidget(QLabel("下限:"))
         self.lower_edit = QLineEdit()
         self.lower_edit.setPlaceholderText("下限值")
-        self.lower_edit.setFixedWidth(100)
+        self.lower_edit.setMinimumWidth(80)
+        self.lower_edit.setMaximumWidth(150)
         param_layout.addWidget(self.lower_edit)
         
         param_layout.addStretch()
@@ -127,7 +130,7 @@ class HeatmapWidget(QWidget):
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.scroll_area.setMinimumHeight(400)  # 设置最小高度
+        self.scroll_area.setMinimumHeight(300)
         
         # 创建图像标签
         self.image_label = QLabel()
@@ -185,7 +188,7 @@ class HeatmapWidget(QWidget):
         self.status_text = QTextEdit()
         self.status_text.setReadOnly(True)
         self.status_text.setFont(QFont("Consolas", self._responsive_font_size(9)))
-        self.status_text.setMaximumHeight(150)
+        self.status_text.setMaximumHeight(120)
         status_layout.addWidget(self.status_text)
         
         status_group.setLayout(status_layout)

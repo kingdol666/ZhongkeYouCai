@@ -22,7 +22,14 @@ class ImageViewerWindow(QMainWindow):
 
         fname = os.path.basename(image_path)
         self.setWindowTitle(f"图片查看器 - {fname}")
-        self.resize(1100, 780)
+
+        # 根据屏幕分辨率自适应窗口大小
+        from PyQt5.QtWidgets import QApplication
+        screen = QApplication.primaryScreen().geometry()
+        win_w = max(800, min(1100, int(screen.width() * 0.8)))
+        win_h = max(600, min(780, int(screen.height() * 0.8)))
+        self.resize(win_w, win_h)
+        self.setMinimumSize(600, 400)
 
         # ---- 场景 & 视图 ----
         self._scene = QGraphicsScene(self)
