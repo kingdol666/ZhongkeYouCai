@@ -51,6 +51,16 @@ if exist "%APPDATA%\Python\Python311\python.exe" (
 )
 
 :: ============================================================
+:: Detect system architecture
+:: ============================================================
+set "ARCH=amd64"
+if "%PROCESSOR_ARCHITECTURE%"=="x86" (
+    if not defined PROCESSOR_ARCHITEW6432 (
+        set "ARCH=win32"
+    )
+)
+
+:: ============================================================
 :: Download embeddable Python 3.11
 :: ============================================================
 echo [WARN] Python 3.11 not found, downloading...
@@ -62,8 +72,15 @@ if exist "%PYTHON_EXE%" (
     goto :install_deps
 )
 
-set "PYTHON_ZIP=%TEMP%\python-3.11.9-embed-amd64.zip"
-set "PYTHON_URL=https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip"
+if "%ARCH%"=="win32" (
+    set "PYTHON_ZIP=%TEMP%\python-3.11.9-embed-win32.zip"
+    set "PYTHON_URL=https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-win32.zip"
+    echo [INFO] Detected 32-bit Windows, downloading 32-bit Python 3.11.9 ...
+) else (
+    set "PYTHON_ZIP=%TEMP%\python-3.11.9-embed-amd64.zip"
+    set "PYTHON_URL=https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip"
+    echo [INFO] Detected 64-bit Windows, downloading 64-bit Python 3.11.9 ...
+)
 
 echo [DOWNLOAD] Fetching Python 3.11.9 ...
 powershell -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%PYTHON_URL%' -OutFile '%PYTHON_ZIP%' -UseBasicParsing" >nul 2>&1
