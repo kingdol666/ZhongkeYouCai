@@ -55,6 +55,13 @@ class MainWindow(QMainWindow):
             setattr(self, f'{prefix}_current_image_path', '')
 
         self.init_ui()
+
+    def _responsive_font_size(self, base_size=10):
+        """根据屏幕分辨率计算响应式字体大小"""
+        screen = QApplication.primaryScreen().geometry()
+        # 基于屏幕高度计算字体大小，范围在 base_size-2 到 base_size+4 之间
+        scale = screen.height() / 1080.0
+        return max(base_size - 2, min(base_size + 4, int(base_size * scale)))
         
     def init_ui(self):
         """初始化UI — 左侧可折叠导航 + 右侧内容区"""
@@ -240,7 +247,7 @@ class MainWindow(QMainWindow):
         
         self.start_btn = QPushButton("开始处理")
         self.start_btn.clicked.connect(self.start_processing)
-        self.start_btn.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.start_btn.setFont(QFont("Arial", self._responsive_font_size(10), QFont.Weight.Bold))
         control_layout.addWidget(self.start_btn)
         
         self.stop_btn = QPushButton("停止处理")
@@ -264,7 +271,7 @@ class MainWindow(QMainWindow):
         
         self.status_text = QTextEdit()
         self.status_text.setReadOnly(True)
-        self.status_text.setFont(QFont("Consolas", 9))
+        self.status_text.setFont(QFont("Consolas", self._responsive_font_size(9)))
         status_layout.addWidget(self.status_text)
         
         status_group.setLayout(status_layout)
@@ -452,7 +459,7 @@ class MainWindow(QMainWindow):
 
         self.sf_start_btn = QPushButton("开始分析")
         self.sf_start_btn.clicked.connect(self.start_single_folder)
-        self.sf_start_btn.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.sf_start_btn.setFont(QFont("Arial", self._responsive_font_size(10), QFont.Weight.Bold))
         control_layout.addWidget(self.sf_start_btn)
 
         self.sf_stop_btn = QPushButton("停止分析")
@@ -520,7 +527,7 @@ class MainWindow(QMainWindow):
 
         self.sf_status = QTextEdit()
         self.sf_status.setReadOnly(True)
-        self.sf_status.setFont(QFont("Consolas", 9))
+        self.sf_status.setFont(QFont("Consolas", self._responsive_font_size(9)))
         self.sf_status.setMaximumHeight(120)
         status_layout.addWidget(self.sf_status)
 
@@ -868,7 +875,7 @@ class MainWindow(QMainWindow):
 
         self.mf_start_btn = QPushButton("开始监控")
         self.mf_start_btn.clicked.connect(self.start_monitoring)
-        self.mf_start_btn.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.mf_start_btn.setFont(QFont("Arial", self._responsive_font_size(10), QFont.Weight.Bold))
         ctrl_layout.addWidget(self.mf_start_btn)
 
         self.mf_stop_btn = QPushButton("停止监控")
@@ -945,7 +952,7 @@ class MainWindow(QMainWindow):
 
         self.mf_status = QTextEdit()
         self.mf_status.setReadOnly(True)
-        self.mf_status.setFont(QFont("Consolas", 9))
+        self.mf_status.setFont(QFont("Consolas", self._responsive_font_size(9)))
         self.mf_status.setMaximumHeight(100)
         status_layout.addWidget(self.mf_status)
 

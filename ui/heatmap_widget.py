@@ -32,6 +32,12 @@ class HeatmapWidget(QWidget):
         super().resizeEvent(event)
         if hasattr(self, 'original_pixmap') and self.original_pixmap and not getattr(self, 'is_zoomed', False):
             self.display_image_scaled(self.original_pixmap)
+
+    def _responsive_font_size(self, base_size=10):
+        """根据屏幕分辨率计算响应式字体大小"""
+        screen = QApplication.primaryScreen().geometry()
+        scale = screen.height() / 1080.0
+        return max(base_size - 2, min(base_size + 4, int(base_size * scale)))
         
     def init_ui(self):
         """初始化UI"""
@@ -99,7 +105,7 @@ class HeatmapWidget(QWidget):
         
         self.generate_btn = QPushButton("生成热力图")
         self.generate_btn.clicked.connect(self.generate_heatmap)
-        self.generate_btn.setFont(QFont("Arial", 10, QFont.Weight.Bold))
+        self.generate_btn.setFont(QFont("Arial", self._responsive_font_size(10), QFont.Weight.Bold))
         control_layout.addWidget(self.generate_btn)
         
         self.stop_btn = QPushButton("停止生成")
@@ -178,7 +184,7 @@ class HeatmapWidget(QWidget):
         
         self.status_text = QTextEdit()
         self.status_text.setReadOnly(True)
-        self.status_text.setFont(QFont("Consolas", 9))
+        self.status_text.setFont(QFont("Consolas", self._responsive_font_size(9)))
         self.status_text.setMaximumHeight(150)
         status_layout.addWidget(self.status_text)
         
