@@ -801,46 +801,47 @@ class MainWindow(QMainWindow):
         param_layout = QGridLayout()
         param_layout.setContentsMargins(15, 20, 15, 15)
         param_layout.setSpacing(10)
-        param_layout.setColumnStretch(1, 2)
-        param_layout.setColumnStretch(2, 2)
+        param_layout.setColumnStretch(1, 3)
         param_layout.setColumnStretch(3, 0)
 
+        # ===== 文件夹路径区 =====
         # 监控文件夹
         param_layout.addWidget(QLabel("监控文件夹:"), 0, 0)
         self.mf_folder_edit = QLineEdit()
         self.mf_folder_edit.setReadOnly(True)
-        param_layout.addWidget(self.mf_folder_edit, 0, 1)
+        param_layout.addWidget(self.mf_folder_edit, 0, 1, 1, 2)
         mf_folder_btn = QPushButton("浏览...")
         mf_folder_btn.setObjectName("browseButton")
         mf_folder_btn.clicked.connect(self.browse_mf_folder)
-        param_layout.addWidget(mf_folder_btn, 0, 2)
+        param_layout.addWidget(mf_folder_btn, 0, 3)
 
-        # 输出文件夹（临时处理结果）
+        # 输出文件夹
         param_layout.addWidget(QLabel("输出文件夹:"), 1, 0)
         self.mf_output_edit = QLineEdit()
         self.mf_output_edit.setReadOnly(True)
-        param_layout.addWidget(self.mf_output_edit, 1, 1)
+        param_layout.addWidget(self.mf_output_edit, 1, 1, 1, 2)
         mf_output_btn = QPushButton("浏览...")
         mf_output_btn.setObjectName("browseButton")
         mf_output_btn.clicked.connect(self.browse_mf_output)
-        param_layout.addWidget(mf_output_btn, 1, 2)
+        param_layout.addWidget(mf_output_btn, 1, 3)
 
-        # 保存文件夹（父目录切换时自动存档）
+        # 存档文件夹
         param_layout.addWidget(QLabel("存档文件夹:"), 2, 0)
         self.mf_save_edit = QLineEdit()
         self.mf_save_edit.setReadOnly(True)
-        param_layout.addWidget(self.mf_save_edit, 2, 1)
+        param_layout.addWidget(self.mf_save_edit, 2, 1, 1, 2)
         mf_save_btn = QPushButton("浏览...")
         mf_save_btn.setObjectName("browseButton")
         mf_save_btn.clicked.connect(self.browse_mf_save)
-        param_layout.addWidget(mf_save_btn, 2, 2)
+        param_layout.addWidget(mf_save_btn, 2, 3)
 
-        # 忽略文件夹名（逗号分隔，不监控这些名称的子文件夹）
+        # 忽略文件夹
         param_layout.addWidget(QLabel("忽略文件夹:"), 3, 0)
         self.mf_ignore_edit = QLineEdit("定量_Roll, 定量_RollTrend")
-        self.mf_ignore_edit.setPlaceholderText("逗号分隔的文件夹名，如：定量_Roll, 定量_RollTrend")
+        self.mf_ignore_edit.setPlaceholderText("逗号分隔的文件夹名")
         param_layout.addWidget(self.mf_ignore_edit, 3, 1, 1, 3)
 
+        # ===== 数据处理参数区 =====
         # 起始行号 / 终止行号
         param_layout.addWidget(QLabel("起始行号:"), 4, 0)
         self.mf_start_row = QLineEdit("8")
@@ -872,7 +873,8 @@ class MainWindow(QMainWindow):
         self.mf_lower.setPlaceholderText("留空使用默认值")
         param_layout.addWidget(self.mf_lower, 7, 1)
 
-        # 每日零点自动切换
+        # ===== 高级选项区 =====
+        # 每日零点自动切换 + CustomProfile
         self.mf_auto_switch_cb = QCheckBox("每日零点自动切换")
         self.mf_auto_switch_cb.setToolTip("启用后，每日零点自动将监控文件夹切换为当天日期对应的子文件夹")
         self.mf_auto_switch_cb.stateChanged.connect(self._on_auto_switch_toggled)
@@ -889,11 +891,10 @@ class MainWindow(QMainWindow):
         self._btn_cp_browse = btn_cp
         param_layout.addWidget(btn_cp, 8, 3)
 
-        # 自动跟随最新文件夹（独立于零点切换）
+        # 自动跟随最新文件夹
         self.mf_auto_follow_cb = QCheckBox("自动跟随最新文件夹")
         self.mf_auto_follow_cb.setToolTip(
-            "启用后，定时扫描磁盘上的最新日期文件夹并自动切换监控目标；\n"
-            "关闭则始终监控下方设置的固定文件夹，不会自动跳转")
+            "启用后，定时扫描磁盘上的最新日期文件夹并自动切换监控目标")
         self.mf_auto_follow_cb.stateChanged.connect(self._on_auto_switch_toggled)
         param_layout.addWidget(self.mf_auto_follow_cb, 9, 0, 1, 4)
 
