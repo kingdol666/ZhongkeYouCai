@@ -6,9 +6,10 @@
 
 import os
 from PyQt5.QtWidgets import (QMainWindow, QGraphicsView, QGraphicsScene,
-                              QGraphicsPixmapItem, QToolBar, QStatusBar)
+                              QGraphicsPixmapItem, QToolBar, QStatusBar,
+                              QAction, QShortcut)
 from PyQt5.QtCore import Qt, QRectF
-from PyQt5.QtGui import QPixmap, QPainter, QAction, QKeySequence, QShortcut
+from PyQt5.QtGui import QPixmap, QPainter, QKeySequence
 
 
 class ImageViewerWindow(QMainWindow):
